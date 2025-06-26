@@ -146,6 +146,8 @@ class TaskRegistry():
         else:
             log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
 
+        print(f"DEBUG - log_dir: {log_dir}")
+
         log_cfg_dict = dict()
         train_cfg_dict = class_to_dict(train_cfg)
         log_cfg_dict.update(train_cfg_dict)

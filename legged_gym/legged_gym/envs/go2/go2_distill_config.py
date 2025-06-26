@@ -10,7 +10,7 @@ from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go
 multi_process_ = True
 class Go2DistillCfg( Go2FieldCfg ):
     class env( Go2FieldCfg.env ):
-        num_envs = 256
+        num_envs = 32
         obs_components = [
             "lin_vel",
             "ang_vel",
@@ -132,7 +132,9 @@ class Go2DistillCfg( Go2FieldCfg ):
     class sim( Go2FieldCfg.sim ):
         no_camera = False
     
-logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+logs_root = osp.join("/export/rpl_project", "logs") # shared path for NFS
+
 class Go2DistillCfgPPO( Go2FieldCfgPPO ):
     class algorithm( Go2FieldCfgPPO.algorithm ):
         entropy_coef = 0.0
@@ -149,8 +151,8 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
 
         teacher_policy_class_name = "EncoderStateAcRecurrent"
         teacher_ac_path = osp.join(logs_root, "field_go2",
-            "{Your trained oracle parkour model directory}",
-            "{The latest model filename in the directory}"
+            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
+            "model_40000.pt"
         )
 
         class teacher_policy( Go2FieldCfgPPO.policy ):
@@ -214,7 +216,7 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
         if multi_process_:
             pretrain_iterations = -1
             class pretrain_dataset:
-                data_dir = "{A temporary directory to store collected trajectory}"
+                data_dir = "/export/isaac_data"
                 dataset_loops = -1
                 random_shuffle_traj_order = True
                 keep_latest_n_trajs = 1500
@@ -222,7 +224,7 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
 
         resume = True
         load_run = osp.join(logs_root, "field_go2",
-            "{Your trained oracle parkour model directory}",
+            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
         )
         ckpt_manipulator = "replace_encoder0" if "field_go2" in load_run else None
 

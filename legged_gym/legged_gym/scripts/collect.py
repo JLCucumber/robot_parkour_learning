@@ -24,7 +24,15 @@ def main(args):
     success_traj_only = False
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     if RunnerCls == DaggerSaver:
-        with open(os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json"), "r") as f:
+
+        # under NFS only
+        shared_path = "/export/rpl_project/"
+        path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+
+        # default path
+        # path = os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+
+        with open(path, "r") as f:
             d = json.load(f, object_pairs_hook= OrderedDict)
             update_class_from_dict(env_cfg, d, strict= True)
             update_class_from_dict(train_cfg, d, strict= True)
@@ -110,7 +118,7 @@ def main(args):
             log_to_tensorboard= args.log,
         ))
     runner = RunnerCls(**runner_kwargs)
-    runner.collect_and_save(config= config)
+    runner.collect_and_save(config= config) 
 
 if __name__ == "__main__":
     args = get_args(

@@ -266,7 +266,6 @@ class DemonstrationSaver:
             'min_timesteps': self.min_timesteps,
             'min_episodes': self.min_episodes,
             'use_critic_obs': self.use_critic_obs,
-            
         }
         # create env-wise trajectory file handler
         os.makedirs(self.save_dir, exist_ok= True)

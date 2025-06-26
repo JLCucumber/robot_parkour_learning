@@ -187,7 +187,9 @@ class Go2FieldCfg( Go2RoughCfg ):
         penetrate_depth_threshold_easier = 200
         no_moveup_when_fall = True
     
-logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+logs_root = osp.join("/export/rpl_project", "logs")  # shared path for NFS
+
 class Go2FieldCfgPPO( Go2RoughCfgPPO ):
     class algorithm( Go2RoughCfgPPO.algorithm ):
         entropy_coef = 0.0
@@ -197,7 +199,7 @@ class Go2FieldCfgPPO( Go2RoughCfgPPO ):
 
         resume = True
         load_run = osp.join(logs_root, "rough_go2",
-            "{Your trained walking model directory}",
+            "May26_18-40-14_Go2Rough_pEnergy-2e-05_pDofErr-1e-02_pDofErrN-1e+00_pStand-2e+00_noResume",
         )
 
         run_name = "".join(["Go2_",
