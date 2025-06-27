@@ -36,6 +36,11 @@ class DaggerSaver(DemonstrationSaver):
         self.update_times_scale = update_times_scale
         self.action_sample_std = action_sample_std
         self.log_to_tensorboard = log_to_tensorboard
+        
+        # ONLY in NFS mode
+        self.shared_path = "/mnt/rpl_project/"
+        self.training_policy_logdir = osp.join(self.shared_path, self.training_policy_logdir)
+
         if self.log_to_tensorboard:
             self.tb_writer = SummaryWriter(
                 log_dir= osp.join(
@@ -66,6 +71,7 @@ class DaggerSaver(DemonstrationSaver):
 
     def build_training_policy(self):
         """ Load the latest training policy model. """
+        
         with open(osp.join(self.training_policy_logdir, "config.json"), "r") as f:
             config = json.load(f)
         training_policy = build_actor_critic(

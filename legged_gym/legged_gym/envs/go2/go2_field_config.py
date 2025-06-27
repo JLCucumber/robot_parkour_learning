@@ -188,7 +188,7 @@ class Go2FieldCfg( Go2RoughCfg ):
         no_moveup_when_fall = True
     
 # logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-logs_root = osp.join("/export/rpl_project", "logs")  # shared path for NFS
+logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
 
 class Go2FieldCfgPPO( Go2RoughCfgPPO ):
     class algorithm( Go2RoughCfgPPO.algorithm ):

@@ -26,7 +26,7 @@ def main(args):
     if RunnerCls == DaggerSaver:
 
         # under NFS only
-        shared_path = "/export/rpl_project/"
+        shared_path = "/mnt/rpl_project/"
         path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
 
         # default path
@@ -62,6 +62,8 @@ def main(args):
     ).to(env.device)
     # load the policy is possible
     if config["algorithm"]["teacher_ac_path"] is not None:
+        print("teacher ac path: ", config["algorithm"]["teacher_ac_path"])
+
         if "{LEGGED_GYM_ROOT_DIR}" in config["algorithm"]["teacher_ac_path"]:
             config["algorithm"]["teacher_ac_path"] = config["algorithm"]["teacher_ac_path"].format(LEGGED_GYM_ROOT_DIR= LEGGED_GYM_ROOT_DIR)
         state_dict = torch.load(config["algorithm"]["teacher_ac_path"], map_location= "cpu")
@@ -112,6 +114,8 @@ def main(args):
                 config["runner"]["experiment_name"],
                 args.load_run,
             ),
+
+            
             teacher_act_prob= teacher_act_prob,
             update_times_scale= config["algorithm"].get("update_times_scale", 1e5),
             action_sample_std= action_std,
