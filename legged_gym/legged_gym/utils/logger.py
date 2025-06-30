@@ -63,9 +63,16 @@ class Logger:
         self.plot_process.start()
 
     def plot_additional_states(self):
-        self.plot_vel_process = Process(target=self._plot_vel)
+        # 1. 安全检查：在启动绘图进程前，先确保有数据可画
+        if not self.state_log.get('all_dof_vel') or not self.state_log.get('all_dof_torque'):
+            print("Logger: Not enough data collected to plot additional states yet. Please wait a few more steps.")
+            return
+
+
+        # 2. 将当前的 log 字典作为参数传递给子进程的目标函数
+        self.plot_vel_process = Process(target=self._plot_vel, args=(self.state_log,))
         self.plot_vel_process.start()
-        self.plot_torque_process = Process(target=self._plot_torque)
+        self.plot_torque_process = Process(target=self._plot_torque, args=(self.state_log,))
         self.plot_torque_process.start()
 
     def _plot(self):
@@ -162,13 +169,13 @@ class Logger:
         a.legend(fontsize = 5)
         plt.show()
 
-    def _plot_vel(self):
-        log= self.state_log
+    def _plot_vel(self, log):
+        # log= self.state_log
         nb_rows = int(np.sqrt(log['all_dof_vel'][0].shape[0]))
         nb_cols = int(np.ceil(log['all_dof_vel'][0].shape[0] / nb_rows))
         nb_rows, nb_cols = nb_cols, nb_rows
         fig, axs = plt.subplots(nb_rows, nb_cols)
-        for key, value in self.state_log.items():
+        for key, value in log.items():
             time = np.linspace(0, len(value)*self.dt, len(value))
             break
         
@@ -188,13 +195,13 @@ class Logger:
                     break
         plt.show()
 
-    def _plot_torque(self):
-        log= self.state_log
+    def _plot_torque(self, log):
+        # log= self.state_log
         nb_rows = int(np.sqrt(log['all_dof_torque'][0].shape[0]))
         nb_cols = int(np.ceil(log['all_dof_torque'][0].shape[0] / nb_rows))
         nb_rows, nb_cols = nb_cols, nb_rows
         fig, axs = plt.subplots(nb_rows, nb_cols)
-        for key, value in self.state_log.items():
+        for key, value in log.items():
             time = np.linspace(0, len(value)*self.dt, len(value))
             break
         

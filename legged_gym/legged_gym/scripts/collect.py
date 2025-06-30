@@ -23,11 +23,20 @@ def main(args):
     RunnerCls = DaggerSaver if args.load_run else DemonstrationSaver
     success_traj_only = False
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
+
+    ### DEBUGGING
+    print("Using task: {}".format(args.task))
+    # args.log = True
+    # args.load_run = "Jun27_14-58-44_Go2_10skills_fromMay26_20-05-28"
+
     if RunnerCls == DaggerSaver:
 
         # under NFS only
         shared_path = "/mnt/rpl_project/"
         path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+
+        # Debugging
+        print("Loading config from: {}".format(path))
 
         # default path
         # path = os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
@@ -60,6 +69,7 @@ def main(args):
         config["algorithm"]["teacher_policy_class_name"],
         config["algorithm"]["teacher_policy"],
     ).to(env.device)
+
     # load the policy is possible
     if config["algorithm"]["teacher_ac_path"] is not None:
         print("teacher ac path: ", config["algorithm"]["teacher_ac_path"])

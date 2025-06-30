@@ -11,6 +11,7 @@ multi_process_ = True
 class Go2DistillCfg( Go2FieldCfg ):
     class env( Go2FieldCfg.env ):
         num_envs = 64
+        num_envs = 64
         obs_components = [
             "lin_vel",
             "ang_vel",
