@@ -125,11 +125,18 @@ def play(args):
     # env_cfg.termination.termination_terms = []
     env_cfg.termination.timeout_at_border = False
     env_cfg.termination.timeout_at_finished = False
+
+    # debug settings
     env_cfg.viewer.debug_viz = True
-    env_cfg.viewer.draw_measure_heights = False
+    env_cfg.viewer.draw_measure_heights = True
     env_cfg.viewer.draw_height_measurements = False
-    env_cfg.viewer.draw_volume_sample_points = False
+    env_cfg.viewer.draw_volume_sample_points = True
     env_cfg.viewer.draw_sensors = False
+    env_cfg.viewer.draw_commands = False
+
+    # env_cfg.viewer.draw_sensor_readings = True
+    # env_cfg.viewer.forward_depth_as_pointcloud = True
+
     if hasattr(env_cfg.terrain, "BarrierTrack_kwargs"):
         env_cfg.terrain.BarrierTrack_kwargs["draw_virtual_terrain"] = True
     train_cfg.runner.resume = (args.load_run is not None)
@@ -146,7 +153,7 @@ def play(args):
         env_cfg.domain_rand.init_base_vel_range = [0., 0.]
         env_cfg.domain_rand.init_dof_pos_ratio_range = [1., 1.]
 
-    # default camera position
+    # # default camera position
     # env_cfg.viewer.lookat = [0.6, 1.2, 0.5]
     # env_cfg.viewer.pos = [0.6, 0., 0.5]
 
@@ -207,6 +214,8 @@ def play(args):
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         print('Exported policy as jit script to: ', path)
+    
+    # 
     if RECORD_FRAMES:
         transform = gymapi.Transform()
         transform.p = gymapi.Vec3(*env_cfg.viewer.pos)
@@ -219,6 +228,25 @@ def play(args):
         if not os.path.exists(os.path.join(LEGGED_GYM_ROOT_DIR, "logs", args.frames_dir)):
             os.makedirs(os.path.join(LEGGED_GYM_ROOT_DIR, "logs", args.frames_dir))
 
+        # transform_cam1 = gymapi.Transform()
+        # transform_cam1.p = gymapi.Vec3(-0.7, -0.7, 0.1) # 相对于机器人身体的偏移
+        # recording_camera_1 = create_recording_camera(
+        #     env.gym, env.envs[0], actor_to_attach=env.actor_handles[0], transform=transform_cam1
+        # )
+
+        # transform_cam2 = gymapi.Transform()
+        # transform_cam2.p = gymapi.Vec3(0.7, 0.7, 0.1) # 相对于机器人身体的偏移
+        # recording_camera_2 = create_recording_camera(
+        #     env.gym, env.envs[0], actor_to_attach=env.actor_handles[0], transform=transform_cam2
+        # )
+
+        # # 为两个相机的输出创建不同的文件夹
+        # output_dir_cam1 = os.path.join(LEGGED_GYM_ROOT_DIR, "logs", "images_cam1")
+        # output_dir_cam2 = os.path.join(LEGGED_GYM_ROOT_DIR, "logs", "images_cam2")
+        # os.makedirs(output_dir_cam1, exist_ok=True)
+        # os.makedirs(output_dir_cam2, exist_ok=True)
+        
+
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging
     joint_index = 4 # which joint is used for logging
@@ -226,7 +254,10 @@ def play(args):
     stop_rew_log = env.max_episode_length + 1 # number of steps before print average episode rewards
     camera_position = np.array(env_cfg.viewer.pos, dtype=np.float64)
     camera_vel = np.array([0.6, 0., 0.])
-    camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
+    # camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
+    # print(f"Debug: camera direction: {camera_direction}")
+    # camera_direction = np.array([-0.7, -0.7, -0.1])
+    camera_direction = np.array([1.0, 1.0, -0.2])
     camera_follow_id = 0 # only effective when CAMERA_FOLLOW
     img_idx = 0
 
@@ -248,6 +279,26 @@ def play(args):
             )
             env.gym.write_viewer_image_to_file(env.viewer, filename)
             img_idx += 1
+
+            # # 这一步会渲染所有相机传感器（包括我们的两个录制相机）
+            # env.gym.step_graphics(env.sim)
+            # env.gym.render_all_camera_sensors(env.sim)
+            
+            # # --- 核心修改：分别保存两个相机的图像 ---
+            # # 保存相机1的图像
+            # filename_1 = os.path.join(output_dir_cam1, f"{img_idx:06d}.png")
+            # env.gym.write_camera_image_to_file(
+            #     env.sim, env.envs[0], recording_camera_1, gymapi.IMAGE_COLOR, filename_1
+            # )
+            
+            # # 保存相机2的图像
+            # filename_2 = os.path.join(output_dir_cam2, f"{img_idx:06d}.png")
+            # env.gym.write_camera_image_to_file(
+            #     env.sim, env.envs[0], recording_camera_2, gymapi.IMAGE_COLOR, filename_2
+            # )
+            # img_idx += 1
+
+
         if MOVE_CAMERA:
             if CAMERA_FOLLOW:
                 camera_position[:] = env.root_states[camera_follow_id, :3].cpu().numpy() - camera_direction
@@ -400,6 +451,7 @@ def play(args):
                 env.env_origins[:] = env.terrain_origins[env.terrain_levels[:], env.terrain_types[:]]
                 env.reset()
                 agent_model.reset()
+        
         # if (env.contact_forces[robot_index, env.feet_indices, 2] > 200).any():
         #     print("contact_forces:", env.contact_forces[robot_index, env.feet_indices, 2])
         # if (abs(env.substep_torques[robot_index]) > 35.).any():
@@ -490,6 +542,7 @@ def play(args):
             start_time = time.time_ns()
 
 if __name__ == '__main__':
+
     EXPORT_POLICY = False
     args = get_args([
         dict(name= "--slow", type= float, default= 0., help= "slow down the simulation by sleep secs (float) every frame"),
@@ -514,6 +567,11 @@ if __name__ == '__main__':
         if RECORD_FRAMES and args.load_run is not None:
             import subprocess
             print("converting frames to video")
+
+            # 1. 定义我们所有相机画面的输出文件夹名称
+            # camera_dirs = ["images_cam1", "images_cam2"]
+
+            # 2. 获取统一的日志和模型加载路径
             log_dir = args.load_run if os.path.isabs(args.load_run) \
                 else os.path.join(
                     LEGGED_GYM_ROOT_DIR,
@@ -521,6 +579,7 @@ if __name__ == '__main__':
                     task_registry.get_cfgs(name=args.task)[1].runner.experiment_name,
                     args.load_run,
                 )
+            
             subprocess.run(["ffmpeg",
                 "-framerate", "50",
                 "-r", "50",
@@ -528,8 +587,35 @@ if __name__ == '__main__':
                 "-c:v", "libx264",
                 "-hide_banner", "-loglevel", "error",
                 os.path.join(log_dir, f"video_{args.checkpoint}.mp4")
-            ])
-            print("done converting frames to video, deleting frame images")
+            ]
+
+            # 3. 循环为每个相机的图像序列生成一个视频
+            # for i, cam_dir_name in enumerate(camera_dirs):
+            #     # a. 构建当前相机的图像输入路径
+            #     input_path = os.path.join(LEGGED_GYM_ROOT_DIR, "logs", cam_dir_name, "%06d.png")
+            #     # b. 构建当前相机的视频输出路径，文件名加上后缀以区分
+            #     output_path = os.path.join(log_dir, f"video_{args.checkpoint}_cam{i+1}.mp4")
+                
+            #     print(f"Converting frames from '{input_path}' to '{output_path}'")
+                
+            #     # c. 运行 ffmpeg 命令
+            #     subprocess.run([
+            #         "ffmpeg",
+            #         "-framerate", "50",
+            #         "-r", "50",
+            #         "-i", input_path,  # <-- 使用动态构建的输入路径
+            #         "-c:v", "libx264",
+            #         "-hide_banner", "-loglevel", "error", "-y",
+            #         output_path,      # <-- 使用动态构建的输出路径
+            #     ])
+            
+            # 4. 循环删除所有相机文件夹中的图片
+
+            print("done converting frames to video, deleting frame images...")
+            # for cam_dir_name in camera_dirs:
+            #     image_folder_path = os.path.join(LEGGED_GYM_ROOT_DIR, "logs", cam_dir_name)
+            #     for f in os.listdir(image_folder_path):
+            #         os.remove(os.path.join(image_folder_path, f))
             for f in os.listdir(os.path.join(LEGGED_GYM_ROOT_DIR, "logs", "images")):
                 os.remove(os.path.join(LEGGED_GYM_ROOT_DIR, "logs", args.frames_dir, f))
             print("done deleting frame images")
