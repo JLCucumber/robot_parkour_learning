@@ -24,3 +24,19 @@ sudo systemctl restart nfs-kernel-server
 client
 
 ---
+
+```Bash
+# 在客户端上运行
+
+sudo umount /mnt/rpl_project_remote
+sudo rmdir /mnt/rpl_project_remote
+
+sudo mkdir -p /mnt/rpl_project
+
+sudo mount 192.168.2.21:/mnt/rpl_project /mnt/rpl_project
+
+sudo gedit /etc/fstab
+192.168.2.21:/mnt/rpl_project /mnt/rpl_project nfs defaults 0 0
+
+
+```
