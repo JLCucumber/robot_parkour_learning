@@ -14,7 +14,7 @@ class Go2DistillCfg( Go2FieldCfg ):
         name = "distill_go2"
         
     class env( Go2FieldCfg.env ):
-        num_envs = 180
+        num_envs = 200
         obs_components = [
             "lin_vel",
             "ang_vel",
