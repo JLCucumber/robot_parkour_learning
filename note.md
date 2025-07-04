@@ -44,4 +44,6 @@ sudo gedit /etc/fstab
 
 ```
 
-python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_15-43-12_Go2_10skills_fromMay26_20-05-28/
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_17-49-03_Go2_10skills_fromMay26_20-05-28/
+
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/
