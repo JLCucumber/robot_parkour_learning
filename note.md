@@ -2,6 +2,7 @@ python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_
 
 heightfield_raw data shape: 1936 5520 border size: 200  (collect)
 heightfield_raw data shape: 1936 5520 border size: 200
+heightfield_raw data shape: 1744 4240 border size: 200
 heightfield_raw data shape: 1168 528 border size: 200  (train)
 
 ---
@@ -47,3 +48,6 @@ sudo gedit /etc/fstab
 python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_17-49-03_Go2_10skills_fromMay26_20-05-28/
 
 python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/
+
+
+Jul04_19-28-58_ jump hurdle down tilted_ramp stairsup stairsdown slope wave_ blockLength2.4_teacherProb0.0_ randOrder_fric0.0-2.0 _aStd0.10 _Jul04_19-26-26

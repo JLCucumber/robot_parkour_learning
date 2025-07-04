@@ -17,6 +17,12 @@ go2_const_dof_range = dict(
 )
 
 class Go2RoughCfg( LeggedRobotCfg ):
+
+    class custom:
+        shared_path = True
+        name = "rough_go2"
+        logs_root = osp.join("/mnt/rpl_project", "logs")
+        
     class env:
         num_envs = 4096
         num_observations = None # No use, use obs_components

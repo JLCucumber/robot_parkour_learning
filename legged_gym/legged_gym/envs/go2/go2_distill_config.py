@@ -9,8 +9,12 @@ from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go
 
 multi_process_ = True
 class Go2DistillCfg( Go2FieldCfg ):
+    class custom( Go2FieldCfg.custom ):
+
+        name = "distill_go2"
+        
     class env( Go2FieldCfg.env ):
-        num_envs = 32
+        num_envs = 180
         obs_components = [
             "lin_vel",
             "ang_vel",
@@ -131,9 +135,9 @@ class Go2DistillCfg( Go2FieldCfg ):
 
     class sim( Go2FieldCfg.sim ):
         no_camera = False
-
-# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")   # local path
-logs_root = osp.join("/mnt/rpl_project", "logs")                                                            # shared path for NFS  
+    
+# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
 
 class Go2DistillCfgPPO( Go2FieldCfgPPO ):
     class algorithm( Go2FieldCfgPPO.algorithm ):

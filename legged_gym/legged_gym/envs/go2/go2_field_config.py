@@ -6,6 +6,10 @@ from collections import OrderedDict
 from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO
 
 class Go2FieldCfg( Go2RoughCfg ):
+    class custom( Go2RoughCfg.custom ):
+        name="field_go2"
+        logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
+
     class init_state( Go2RoughCfg.init_state ):
         pos = [0.0, 0.0, 0.7]
         zero_actions = False
@@ -203,7 +207,7 @@ class Go2FieldCfgPPO( Go2RoughCfgPPO ):
         )
 
         run_name = "".join(["Go2_",
-            ("{:d}skills".format(len(Go2FieldCfg.terrain.BarrierTrack_kwargs["options"]))),
+            ("{:d}skills".format(len(Go2FieldCfg.terrain.BarrierTrack_kwargs["options"]))), # type: ignore
             ("_pEnergy" + np.format_float_scientific(-Go2FieldCfg.rewards.scales.energy_substeps, precision=2)),
             # ("_pDofErr" + np.format_float_scientific(-Go2FieldCfg.rewards.scales.dof_error, precision=2) if getattr(Go2FieldCfg.rewards.scales, "dof_error", 0.) != 0. else ""),
             # ("_pHipDofErr" + np.format_float_scientific(-Go2FieldCfg.rewards.scales.dof_error_named, precision=2) if getattr(Go2FieldCfg.rewards.scales, "dof_error_named", 0.) != 0. else ""),
@@ -219,11 +223,11 @@ class Go2FieldCfgPPO( Go2RoughCfgPPO ):
             ("_penEasier{:d}".format(Go2FieldCfg.curriculum.penetrate_depth_threshold_easier)),
             ("_penHarder{:d}".format(Go2FieldCfg.curriculum.penetrate_depth_threshold_harder)),
             # ("_leapMin" + np.format_float_scientific(Go2FieldCfg.terrain.BarrierTrack_kwargs["leap"]["length"][0], precision=2)),
-            ("_leapHeight" + np.format_float_scientific(Go2FieldCfg.terrain.BarrierTrack_kwargs["leap"]["height"], precision=2)),
+            # ("_leapHeight" + np.format_float_scientific(Go2FieldCfg.terrain.BarrierTrack_kwargs["leap"]["height"], precision=2)),
             ("_motorTorqueClip" if Go2FieldCfg.control.motor_clip_torque else ""),
             # ("_noMoveupWhenFall" if Go2FieldCfg.curriculum.no_moveup_when_fall else ""),
             ("_noResume" if not resume else "_from" + "_".join(load_run.split("/")[-1].split("_")[:2])),
-        ])
+        ]) # type: ignore
 
         max_iterations = 38000
         save_interval = 10000

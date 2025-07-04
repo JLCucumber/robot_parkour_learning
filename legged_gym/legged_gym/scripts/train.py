@@ -44,8 +44,17 @@ from legged_gym.debugger import break_into_debugger
 def train(args):
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
 
-    shared_log_root = os.path.join("/mnt/rpl_project/logs", "distill_go2")
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg, log_root=shared_log_root)
+    # if has attribute custom in env_cfg, use it to set the log root
+    if hasattr(env_cfg, 'custom'):
+        if env_cfg.custom.shared_path == True: # type: ignore
+            shared_log_root = os.path.join(env_cfg.custom.logs_root, env_cfg.custom.name) # type: ignore
+
+            ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg, log_root=shared_log_root)
+        else:
+            ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg)
+    else:
+        ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg)
+
     ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
 
 if __name__ == '__main__':

@@ -52,7 +52,9 @@ def main(args):
     # env_cfg.terrain.max_init_terrain_level = 0
     # env_cfg.terrain.border_size = 1.
     ############# some predefined options #############
-    env_cfg.terrain.num_rows = 7; env_cfg.terrain.num_cols = 30
+    env_cfg.terrain.num_rows = 6 ; env_cfg.terrain.num_cols = 25
+
+    print("number of envs:", env_cfg.env.num_envs)
     # Done custom settings
 
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -123,9 +125,7 @@ def main(args):
                 "logs",
                 config["runner"]["experiment_name"],
                 args.load_run,
-            ),
-
-            
+            ),            
             teacher_act_prob= teacher_act_prob,
             update_times_scale= config["algorithm"].get("update_times_scale", 1e5),
             action_sample_std= action_std,
