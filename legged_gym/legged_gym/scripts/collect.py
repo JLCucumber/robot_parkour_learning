@@ -18,8 +18,16 @@ from legged_gym.debugger import break_into_debugger
 
 from rsl_rl.modules import build_actor_critic
 from rsl_rl.runners.dagger_saver import DemonstrationSaver, DaggerSaver
+# os.environ['MESA_VK_DEVICE_SELECT'] = '10de:24b0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+# torch.cuda.set_device(1)
 
 def main(args):
+
+    print("sim device:", args.sim_device)
+    print("rl device:", args.rl_device)
+    print("graphics device id", args.graphics_device_id)
+
     RunnerCls = DaggerSaver if args.load_run else DemonstrationSaver
     success_traj_only = False
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)

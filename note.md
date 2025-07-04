@@ -44,10 +44,45 @@ sudo gedit /etc/fstab
 
 
 ```
+STEP 1
+cd /home/jlcucumber/projects/isaac_gym_parkour
+mamba activate mamba_env/isaacgym_hb/
+cd robot_parkour_learning/legged_gym/ 
 
-python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_17-49-03_Go2_10skills_fromMay26_20-05-28/
+STEP 2
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
+export LD_LIBRARY_PATH=/home/jlcucumber/miniforge3/envs/isaacgym_parkour_lhb/lib
 
-python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/
+STEP 3
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-01-13_Go2_10skills_fromMay26_20-05-28/
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/ --sim_device=cuda:0 --rl_device=cuda:0 --graphics_device_id=0
+(
+echo $LD_LIBRARY_PATH
+/home/jlcucumber/miniforge3/envs/isaacgym_parkour_lhb/lib/libpython3.8.so.1.0
+)
 
+(
+MESA_VK_DEVICE_SELECT=list vulkaninfo
+error: XDG_RUNTIME_DIR not set in the environment.
+selectable devices:
+  GPU 0: 10de:24b0 "NVIDIA RTX A4000" discrete GPU 0000:00:00.0
+  GPU 1: 10de:24b0 "NVIDIA RTX A4000" discrete GPU 0000:00:00.0
+
+os.environ['MESA_VK_DEVICE_SELECT'] = '10de:24b0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+)
+
+
+
+---
+```Bash
+echo $CUDA_VISIBLE_DEVICES       # 应该=1
+python - <<'PY'
+import torch, os
+print('CUDA_VISIBLE_DEVICES =', os.getenv('CUDA_VISIBLE_DEVICES'))
+print('torch sees', torch.cuda.device_count(), 'GPU(s)')
+print('current device index ->', torch.cuda.current_device())
+PY
+```
 
 Jul04_19-28-58_ jump hurdle down tilted_ramp stairsup stairsdown slope wave_ blockLength2.4_teacherProb0.0_ randOrder_fric0.0-2.0 _aStd0.10 _Jul04_19-26-26
