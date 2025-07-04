@@ -130,12 +130,12 @@ def play(args):
     env_cfg.viewer.debug_viz = True
     env_cfg.viewer.draw_measure_heights = True
     env_cfg.viewer.draw_height_measurements = False
-    env_cfg.viewer.draw_volume_sample_points = True
+    env_cfg.viewer.draw_volume_sample_points = False
     env_cfg.viewer.draw_sensors = False
     env_cfg.viewer.draw_commands = False
 
-    # env_cfg.viewer.draw_sensor_readings = True
-    # env_cfg.viewer.forward_depth_as_pointcloud = True
+    env_cfg.viewer.draw_sensor_readings = False
+    env_cfg.viewer.forward_depth_as_pointcloud = False
 
     if hasattr(env_cfg.terrain, "BarrierTrack_kwargs"):
         env_cfg.terrain.BarrierTrack_kwargs["draw_virtual_terrain"] = True
@@ -456,7 +456,7 @@ def play(args):
         #     print("contact_forces:", env.contact_forces[robot_index, env.feet_indices, 2])
         # if (abs(env.substep_torques[robot_index]) > 35.).any():
             # exceed_idxs = torch.where(abs(env.substep_torques[robot_index]) > 35.)
-            # print("substep_torques:", exceed_idxs[1], env.substep_torques[robot_index][exceed_idxs[0], exceed_idxs[1]])
+            # print("substep_torques:", exceed_idxs[1], env.substep_torques[robot_index][exceed_idxs[0]#, exceed_idxs[1]])
         # if env.torque_exceed_count_envstep[robot_index].any():
         #     print("substep torque exceed limit ratio", 
         #         (torch.abs(env.substep_torques[robot_index]) / (env.torque_limits.unsqueeze(0))).max(),
@@ -542,7 +542,6 @@ def play(args):
             start_time = time.time_ns()
 
 if __name__ == '__main__':
-
     EXPORT_POLICY = False
     args = get_args([
         dict(name= "--slow", type= float, default= 0., help= "slow down the simulation by sleep secs (float) every frame"),
@@ -587,7 +586,7 @@ if __name__ == '__main__':
                 "-c:v", "libx264",
                 "-hide_banner", "-loglevel", "error",
                 os.path.join(log_dir, f"video_{args.checkpoint}.mp4")
-            ]
+            ])
 
             # 3. 循环为每个相机的图像序列生成一个视频
             # for i, cam_dir_name in enumerate(camera_dirs):

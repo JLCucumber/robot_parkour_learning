@@ -372,6 +372,30 @@ class LeggedRobotNoisyMixin:
                     forward_depth_np = self.forward_depth_output[0, 0].detach().cpu().numpy() # (H, W)
                     plt.imshow(forward_depth_np, cmap= "gray", vmin= 0, vmax= 1)
                     plt.pause(0.001)
+                    # 改为将图像保存到文件
+                    # import matplotlib.pyplot as plt
+                    # import os
+
+                    # # 1. 定义一个专门存放 matplotlib 帧的文件夹
+                    # output_dir_matplotlib = os.path.join(LEGGED_GYM_ROOT_DIR, "logs", "images_matplotlib")
+                    # os.makedirs(output_dir_matplotlib, exist_ok=True)
+
+                    # # 2. 获取当前帧的索引 (需要从 play.py 中获取或自己维护一个计数器)
+                    # #    这里我们假设 self.common_step_counter 在环境中可用
+                    # frame_idx = self.common_step_counter
+
+                    # # 3. 绘图并保存
+                    # fig, ax = plt.subplots(figsize=(6.4, 4.8), dpi=100) # 控制图像大小和分辨率
+                    # forward_depth_np = self.forward_depth_output[0, 0].detach().cpu().numpy()
+                    # ax.imshow(forward_depth_np, cmap="gray", vmin=0, vmax=1)
+                    # ax.axis('off') # 关闭坐标轴，只保留图像内容
+
+                    # # 4. 保存到文件
+                    # filename = os.path.join(output_dir_matplotlib, f"{frame_idx:06d}.png")
+                    # fig.savefig(filename, bbox_inches='tight', pad_inches=0)
+
+                    # # 5. 关闭图像，防止内存泄漏
+                    # plt.close(fig)
             else:
                 print("LeggedRobotNoisy: More than one robot, stop showing camera image")
         return return_
