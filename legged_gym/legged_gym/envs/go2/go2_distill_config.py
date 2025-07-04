@@ -131,9 +131,9 @@ class Go2DistillCfg( Go2FieldCfg ):
 
     class sim( Go2FieldCfg.sim ):
         no_camera = False
-    
-logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-# logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
+
+# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")   # local path
+logs_root = osp.join("/mnt/rpl_project", "logs")                                                            # shared path for NFS  
 
 class Go2DistillCfgPPO( Go2FieldCfgPPO ):
     class algorithm( Go2FieldCfgPPO.algorithm ):
