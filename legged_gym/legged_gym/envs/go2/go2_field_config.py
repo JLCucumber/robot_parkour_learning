@@ -28,13 +28,13 @@ class Go2FieldCfg( Go2RoughCfg ):
         BarrierTrack_kwargs = dict(
             options= [
                 "jump",
-                "leap",
+                # "leap",
                 "hurdle",
                 "down",
                 "tilted_ramp",
                 "stairsup",
                 "stairsdown",
-                "discrete_rect",
+                # "discrete_rect",
                 "slope",
                 "wave",
             ], # each race track will permute all the options
@@ -43,12 +43,12 @@ class Go2FieldCfg( Go2RoughCfg ):
                 depth= [0.1, 0.3],
                 # fake_offset= 0.1,
             ),
-            leap= dict(
-                length= [0.05, 0.8],
-                depth= [0.5, 0.8],
-                height= 0.2, # expected leap height over the gap
-                # fake_offset= 0.1,
-            ),
+            # leap= dict(
+            #     length= [0.05, 0.8],
+            #     depth= [0.5, 0.8],
+            #     height= 0.2, # expected leap height over the gap
+            #     # fake_offset= 0.1,
+            # ),
             hurdle= dict(
                 height= [0.05, 0.5],
                 depth= [0.2, 0.5],
@@ -104,12 +104,12 @@ class Go2FieldCfg( Go2RoughCfg ):
                 num_steps= [3, 19],
                 num_steps_curriculum= True,
             ),
-            discrete_rect= dict(
-                max_height= [0.05, 0.2],
-                max_size= 0.6,
-                min_size= 0.2,
-                num_rects= 10,
-            ),
+            # discrete_rect= dict(
+            #     max_height= [0.05, 0.2],
+            #     max_size= 0.6,
+            #     min_size= 0.2,
+            #     num_rects= 10,
+            # ),
             wave= dict(
                 amplitude= [0.1, 0.15], # in meter
                 frequency= [0.6, 1.0], # in 1/meter

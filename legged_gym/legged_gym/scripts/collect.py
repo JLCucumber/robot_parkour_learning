@@ -52,7 +52,7 @@ def main(args):
     # env_cfg.terrain.max_init_terrain_level = 0
     # env_cfg.terrain.border_size = 1.
     ############# some predefined options #############
-    env_cfg.terrain.num_rows = 8; env_cfg.terrain.num_cols = 40
+    env_cfg.terrain.num_rows = 7; env_cfg.terrain.num_cols = 30
     # Done custom settings
 
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)

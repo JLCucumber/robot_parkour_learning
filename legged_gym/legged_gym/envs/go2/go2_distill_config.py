@@ -10,7 +10,7 @@ from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go
 multi_process_ = True
 class Go2DistillCfg( Go2FieldCfg ):
     class env( Go2FieldCfg.env ):
-        num_envs = 256
+        num_envs = 32
         obs_components = [
             "lin_vel",
             "ang_vel",
@@ -42,14 +42,14 @@ class Go2DistillCfg( Go2FieldCfg ):
             num_cols = 20
         curriculum = False
 
-        BarrierTrack_kwargs = merge_dict(Go2FieldCfg.terrain.BarrierTrack_kwargs, dict(
-            leap= dict(
-                length= [0.05, 0.8],
-                depth= [0.5, 0.8],
-                height= 0.15, # expected leap height over the gap
-                fake_offset= 0.1,
-            ),
-        ))
+        # BarrierTrack_kwargs = merge_dict(Go2FieldCfg.terrain.BarrierTrack_kwargs, dict(
+        #     leap= dict(
+        #         length= [0.05, 0.8],
+        #         depth= [0.5, 0.8],
+        #         height= 0.15, # expected leap height over the gap
+        #         fake_offset= 0.1,
+        #     ),
+        # ))
 
     class sensor( Go2FieldCfg.sensor ):
         class forward_camera:
