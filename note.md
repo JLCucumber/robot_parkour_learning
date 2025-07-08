@@ -57,8 +57,8 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
 export LD_LIBRARY_PATH=/home/jlcucumber/miniforge3/envs/isaacgym_parkour_lhb/lib
 
 STEP 3
-python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_20-59-01_Go2_8skills_fromMay26_20-05-28/
-python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_20-59-01_Go2_8skills_fromMay26_20-05-28/ --sim_device=cuda:0 --rl_device=cuda:0 --graphics_device_id=0
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul07_20-33-54_Go2_8skills_fromMay26_20-05-28/
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/ --sim_device=cuda:0 --rl_device=cuda:0 --graphics_device_id=0
 (
 echo $LD_LIBRARY_PATH
 /home/jlcucumber/miniforge3/envs/isaacgym_parkour_lhb/lib/libpython3.8.so.1.0
