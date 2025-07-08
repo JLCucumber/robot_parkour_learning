@@ -42,6 +42,7 @@ class RolloutDataset(RolloutFileBase):
     def get_frame_range(filename: str) -> tuple:
         """ Get the frame range from the filename. Return a tuple [start, end). (end is exclusive)
         """
+        print(f"RolloutDataset: get frame range from {filename}")
         return (
             int(filename.split(".")[0].split("_")[1]),
             int(filename.split(".")[0].split("_")[2]),
@@ -71,6 +72,11 @@ class RolloutDataset(RolloutFileBase):
             for root, dirs, _ in os.walk(data_dir):
                 for d in dirs:
                     if d.startswith("trajectory_") and len(os.listdir(os.path.join(root, d))) > 0:
+                        # skip the directory which has tmpfwm0qnuw.tmp inside
+                        if "tmpfwm0qnuw.tmp" in os.listdir(os.path.join(root, d)):
+                            print(f"RolloutDataset: skipping {os.path.join(root, d)} due to tmp file present.")
+                            continue
+
                         self.all_available_trajectory_dirs.append(os.path.join(root, d))
                         trajectory_files = os.listdir(os.path.join(root, d))
                         trajectory_files.sort(key= lambda x: self.get_frame_range(x)[1])
@@ -93,6 +99,16 @@ class RolloutDataset(RolloutFileBase):
             total_timesteps,
         ))
 
+        if len(self.all_available_trajectory_dirs) < self.keep_latest_n_trajs:
+            return False
+        else:
+            self.all_available_trajectory_dirs = self.all_available_trajectory_dirs[-self.keep_latest_n_trajs:]
+            # take suffix after "/trajectory_" as the index of the trajectory
+            self.suffixs = [d.split("trajectory_")[-1] for d in self.all_available_trajectory_dirs]
+            # show the range of the trajectory suffixes
+            print(f"RolloutDataset: trajectory suffixes range: {min(self.suffixs)} - {max(self.suffixs)}, total {len(self.suffixs)} trajectories.")
+
+                
         #### Debugging ####
         # take the strings after "data/" before "_jump" as the task name for all_available_trajectory_dirs
         if len(self.all_available_trajectory_dirs) > 0:
@@ -102,10 +118,6 @@ class RolloutDataset(RolloutFileBase):
             print("RolloutDataset: unique task names found in all available trajectories: {}".format(unique_task_names))
         ###################
 
-        if len(self.all_available_trajectory_dirs) < self.keep_latest_n_trajs:
-            return False
-        else:
-            self.all_available_trajectory_dirs = self.all_available_trajectory_dirs[-self.keep_latest_n_trajs:]
         self.unused_trajectory_idxs = list(range(len(self.all_available_trajectory_dirs)))
         if self.random_shuffle_traj_order:
             self.unused_trajectory_idxs = np.random.permutation(self.unused_trajectory_idxs)
@@ -262,7 +274,7 @@ class RolloutDataset(RolloutFileBase):
                 #     print(f"current traj cursor for env {env_idx} : {self.traj_cursors[env_idx]}")
                 #     print(f"next file index for env {env_idx} : {self.traj_file_idxs[env_idx] + 1}")
                 ####################
-                
+
                 # load new traj_data from the same trajectory
                 self.traj_file_idxs[env_idx] += 1
                 self._refresh_traj_data(env_idx)

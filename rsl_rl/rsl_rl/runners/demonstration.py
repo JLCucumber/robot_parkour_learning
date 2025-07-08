@@ -166,10 +166,10 @@ class DemonstrationSaver:
         # with open(traj_file, 'wb') as f:
         #     pickle.dump(trajectory, f)
         
-        with open(tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
             pickle.dump(trajectory, tmp_f)
             temp_path = tmp_f.name
-
+        
         os.rename(temp_path, traj_file)
 
         self.dumped_traj_lengths[env_i] += step_slice.stop - step_slice.start
