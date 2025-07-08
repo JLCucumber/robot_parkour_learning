@@ -262,6 +262,7 @@ class RolloutDataset(RolloutFileBase):
                 #     print(f"current traj cursor for env {env_idx} : {self.traj_cursors[env_idx]}")
                 #     print(f"next file index for env {env_idx} : {self.traj_file_idxs[env_idx] + 1}")
                 ####################
+                
                 # load new traj_data from the same trajectory
                 self.traj_file_idxs[env_idx] += 1
                 self._refresh_traj_data(env_idx)
