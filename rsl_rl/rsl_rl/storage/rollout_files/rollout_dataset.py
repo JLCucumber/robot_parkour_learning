@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 import json
 import time
+import traceback
 from collections import OrderedDict
 
 from rsl_rl.utils.collections import namedarraytuple
@@ -50,12 +51,15 @@ class RolloutDataset(RolloutFileBase):
         """ Refresh file-related information by scanning the directory. All traj_handlers must be
         updated from attributes here.
         """
+        print("RolloutDataset: reading dataset directory...")
+
         if isinstance(self.data_dir, str):
             self.data_dirs = [self.data_dir]
         elif isinstance(self.data_dir, (tuple, list)):
             self.data_dirs = self.data_dir
         else:
             raise ValueError("data_dir should be a string or a list of strings.")
+        # print("Data Directories: {}".format(self.data_dirs))
         self.all_available_trajectory_dirs = []
         self.metadata = None # reset metadata to ensure only one metadata is used
         metadata_repeated = False
@@ -74,9 +78,11 @@ class RolloutDataset(RolloutFileBase):
                 try:
                     with open(os.path.join(root, "metadata.json"), "r") as f:
                         if self.metadata is None:
+                            # print("Root Directory: {}".format(root))
                             self.metadata = json.load(f, object_pairs_hook= OrderedDict)
                         elif not metadata_repeated:
                             print("RolloutDataset: multiple metadata files found, using the first one.")
+                            # print("Root Directory: {}".format(root))
                             metadata_repeated = True
                 except FileNotFoundError:
                     pass # skip
@@ -86,6 +92,16 @@ class RolloutDataset(RolloutFileBase):
             len(self.all_available_trajectory_dirs),
             total_timesteps,
         ))
+
+        #### Debugging ####
+        # take the strings after "data/" before "_jump" as the task name for all_available_trajectory_dirs
+        if len(self.all_available_trajectory_dirs) > 0:
+            task_names = [d.split("data/")[-1].split("_jump")[0] for d in self.all_available_trajectory_dirs]
+            # find unique task names
+            unique_task_names = set(task_names)
+            print("RolloutDataset: unique task names found in all available trajectories: {}".format(unique_task_names))
+        ###################
+
         if len(self.all_available_trajectory_dirs) < self.keep_latest_n_trajs:
             return False
         else:
@@ -128,20 +144,55 @@ class RolloutDataset(RolloutFileBase):
 
         self.refresh_handlers()
 
-    def _refresh_traj_data(self, env_idx):
+    def _refresh_traj_data(self, env_idx, retries=5, delay=1.0):
         """ refresh `self.traj_data` based on current traj_file_idxs[env_idx]. usually called
         after refreshing traj_handler or updated traj_file_idxs[env_idx]
+        with retry mechanism to handle potential file read errors.
         """
         traj_dir = self.all_available_trajectory_dirs[self.traj_identifiers[env_idx]]
-        try:
-            with open(os.path.join(traj_dir, self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]]), "rb") as f:
-                traj_data = pickle.load(f)
-        except:
-            raise RuntimeError("RolloutDataset: failed to load trajectory data from {}".format(
-                os.path.join(traj_dir, self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])
-            ))
+        traj_filename = self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]]
+        traj_path = os.path.join(traj_dir, traj_filename)
+
+        ### safety check
+        attempt = 0
+        while attempt < retries:
+            attempt += 1
+            try:
+                # === Check if file exists and is non-empty ===
+                if not os.path.exists(traj_path):
+                    print(f"[Attempt {attempt}] File does not exist: {traj_path}")
+                elif os.path.getsize(traj_path) == 0:
+                    print(f"[Attempt {attempt}] File size is 0, possibly still being written: {traj_path}")
+                else:
+                    # === Try to load pickle file ===
+                    with open(traj_path, "rb") as f:
+                        traj_data = pickle.load(f)
+                    break  # Successfully loaded, exit loop
+            except EOFError:
+                print(f"[Attempt {attempt}] Caught EOFError, file might still be writing: {traj_path}")
+            except Exception:
+                traceback.print_exc()
+                print(f"[Attempt {attempt}] Other error occurred, retrying: {traj_path}")
+
+            time.sleep(delay)
+        else:
+            raise RuntimeError(f"[RolloutDataset] Failed to load trajectory file after multiple attempts: {traj_path}")
+
+
+        # try:
+        #     with open(os.path.join(traj_dir, self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]]), "rb") as f:
+        #         traj_data = pickle.load(f)
+        # except:
+        #     traceback.print_exc()
+        #     raise RuntimeError("RolloutDataset: failed to load trajectory data from {}".format(
+        #         os.path.join(traj_dir, self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])
+        #     ))
+        
+
         if "obs_disassemble_mapping" in self.metadata.keys():
             traj_data = self.assemble_obs_components(traj_data)
+
+
         for k, v in traj_data.items():
             traj_data[k] = torch.from_numpy(v).to(self.device)
         self.traj_datas[env_idx] = traj_data
@@ -152,6 +203,9 @@ class RolloutDataset(RolloutFileBase):
         """
         traj_dir = self.all_available_trajectory_dirs[self.traj_identifiers[env_idx]]
         trajectory_files = os.listdir(traj_dir)
+
+        # print(f"RolloutDataset: loading trajectory files from {traj_dir} for env {env_idx}, file ({self.traj_file_idxs[env_idx]}/{len(trajectory_files)}, remaining ({len(self.unused_trajectory_idxs)}/1500)) ")
+
         trajectory_files.sort(key= lambda x: self.get_frame_range(x)[1])
         self.traj_cursors[env_idx] = np.random.randint(
             min(self.starting_frame_range[0], self.get_frame_range(trajectory_files[-1])[0]),
@@ -168,31 +222,51 @@ class RolloutDataset(RolloutFileBase):
         self.traj_datas[env_idx]["dones"][0] = True # set the first frame as done
 
     def refresh_handlers(self, env_ids= None):
+        # this method is called ONLY at the start of a new bunch of trajectories are init.
+        # print()
         if env_ids is None: env_ids = self.all_env_ids
-
+        self.count = 0
         for env_idx in env_ids:
             self.traj_identifiers[env_idx] = self.unused_trajectory_idxs.pop(0)
             self._refresh_traj_handler(env_idx)
 
     def _maintain_handler(self, env_idx):
-        """ Maintain traj_handler and update traj_data if needed. Return whether a new trajectory
-        is loaded.
+        """ Maintain traj_handler and update traj_data if needed. Return whether a new trajectory is loaded.
         """
         try:
             if self.traj_cursors[env_idx] >= self.traj_lengths[env_idx]:
                 # load a new trajectory
                 # NOTE: self.unused_trajectory_idxs should be shuffled during read_dataset_directory if needed
+
                 if len(self.unused_trajectory_idxs) == 0:
+                    print(f"1500 Trajectories Runs Out! ")
+                    print(f"Loading New Trajectories...")
                     raise StopIteration
                 self.traj_identifiers[env_idx] = self.unused_trajectory_idxs.pop(0)
+
+                # ###### Debug #######
+                # if 0 <= env_idx <= 10:
+                #     print(f"traj id of first ten envs: {self.traj_identifiers[:10]}")
+                #     print(f"traj file index of first ten envs: {self.traj_file_idxs[:10]}")
+                #     # print(f"remaining trajectories: {len(self.unused_trajectory_idxs)}")
+                # ###################
+
                 self._refresh_traj_handler(env_idx)
                 return True
+            
             traj_cursor_range = self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])
             if self.traj_cursors[env_idx] < traj_cursor_range[0] or self.traj_cursors[env_idx] >= traj_cursor_range[1]:
+                
+                ###### Debug #######
+                # if env_idx==0:
+                #     print(f"current traj cursor for env {env_idx} : {self.traj_cursors[env_idx]}")
+                #     print(f"next file index for env {env_idx} : {self.traj_file_idxs[env_idx] + 1}")
+                ####################
                 # load new traj_data from the same trajectory
                 self.traj_file_idxs[env_idx] += 1
                 self._refresh_traj_data(env_idx)
-                return False
+                return False  
+            
         except StopIteration:
             if self.dataset_loops < 1 or self.num_dataset_looped < self.dataset_loops:
                 # loop the dataset

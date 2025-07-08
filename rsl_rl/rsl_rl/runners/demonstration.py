@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import json
 import pickle
+import tempfile
 import time
 
 import numpy as np
@@ -156,13 +157,21 @@ class DemonstrationSaver:
         """ dump the part of trajectory to the trajectory directory """
         traj_idx = self.traj_idxs[env_i]
         traj_dir = osp.join(self.save_dir, f"trajectory_{traj_idx}")
-        traj_file = osp.join(
-            traj_dir,
-            f"traj_{self.dumped_traj_lengths[env_i]:06d}_{self.dumped_traj_lengths[env_i]+step_slice.stop-step_slice.start:06d}.pickle",
-        )
+
+        final_filename = f"traj_{self.dumped_traj_lengths[env_i]:06d}_{self.dumped_traj_lengths[env_i]+step_slice.stop-step_slice.start:06d}.pickle"
+        traj_file = osp.join(traj_dir, final_filename)
+
         trajectory = self.wrap_up_trajectory(env_i, step_slice)
-        with open(traj_file, 'wb') as f:
-            pickle.dump(trajectory, f)
+
+        # with open(traj_file, 'wb') as f:
+        #     pickle.dump(trajectory, f)
+        
+        with open(tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
+            pickle.dump(trajectory, tmp_f)
+            temp_path = tmp_f.name
+
+        os.rename(temp_path, traj_file)
+
         self.dumped_traj_lengths[env_i] += step_slice.stop - step_slice.start
         self.total_timesteps += step_slice.stop - step_slice.start
 
