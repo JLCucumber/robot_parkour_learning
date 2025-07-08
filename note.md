@@ -2,10 +2,6 @@ python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_
 
 heightfield_raw data shape: 1936 5520 border size: 200  (collect)
 heightfield_raw data shape: 1936 5520 border size: 200
-<<<<<<< Updated upstream
-heightfield_raw data shape: 1744 4240 border size: 200
-=======
->>>>>>> Stashed changes
 heightfield_raw data shape: 1168 528 border size: 200  (train)
 
 ---
