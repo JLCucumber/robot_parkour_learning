@@ -89,6 +89,8 @@ class Go1FieldDistillCfg( Go1FieldCfg ):
         curriculum = False
         
         selected = "BarrierTrack"
+        mesh_type = None 
+        
         BarrierTrack_kwargs = dict(
             options= [
                 # "tilt",
