@@ -42,6 +42,23 @@ import torch
 from legged_gym.debugger import break_into_debugger
 
 def train(args):
+
+    # print arguments
+    # print("#" * 50)
+    # print("Training started at:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    # # print("Using device:", args.device)
+    # # print("Task:", args.task)
+    # # print("Number of environments:", args.num_envs)
+    # # print("Number of GPUs:", args.num_gpus)
+    # # print("Number of workers:", args.num_workers)
+    # # print("Headless mode:", args.headless)
+
+    # print("Training with arguments:")
+    # for arg in vars(args):
+    #     print(f"{arg}: {getattr(args, arg)}")
+    # print("#" * 50)
+
+
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
 
     # if has attribute custom in env_cfg, use it to set the log root

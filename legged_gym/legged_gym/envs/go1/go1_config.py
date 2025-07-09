@@ -197,6 +197,10 @@ class Go1RoughCfgPPO( LeggedRobotCfgPPO ):
         run_name = 'full'
         experiment_name = 'rough_go1'
 
+        max_iterations = 3000
+        save_interval = 2000
+        log_interval = 100
+
 #### To train the model with partial observation (flat terrain) ####
 
 # class Go1PlaneCfg( Go1RoughCfg ):
