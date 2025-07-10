@@ -71,10 +71,17 @@ class RolloutDataset(RolloutFileBase):
                 print("RolloutDataset: {} not found, created...".format(data_dir))
             for root, dirs, _ in os.walk(data_dir):
                 for d in dirs:
-                    if d.startswith("trajectory_") and len(os.listdir(os.path.join(root, d))) > 0:
-                        # skip the directory which has tmpfwm0qnuw.tmp inside
-                        if "tmpfwm0qnuw.tmp" in os.listdir(os.path.join(root, d)):
-                            print(f"RolloutDataset: skipping {os.path.join(root, d)} due to tmp file present.")
+                    if d.startswith("trajectory_"):
+                        dir_path = os.path.join(root, d)
+                        file_list = os.listdir(dir_path)
+
+                        # 检查目录是否为空
+                        if not file_list:
+                            continue
+
+                        # 检查目录内是否存在任何以 ".tmp" 结尾的文件
+                        if any(f.endswith(".tmp") for f in file_list):
+                            print(f"RolloutDataset: skipping {dir_path} due to a .tmp file being present.")
                             continue
 
                         self.all_available_trajectory_dirs.append(os.path.join(root, d))
