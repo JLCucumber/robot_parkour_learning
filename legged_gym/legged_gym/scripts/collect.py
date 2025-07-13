@@ -22,6 +22,8 @@ from rsl_rl.runners.dagger_saver import DemonstrationSaver, DaggerSaver
 # os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 # torch.cuda.set_device(1)
 
+SHARED_PATH = "/cs/student/projects2/rai/2024/hongboli/network_test/"  # Change this to your shared path if needed
+
 def main(args):
 
     print("sim device:", args.sim_device)
@@ -40,9 +42,10 @@ def main(args):
     if RunnerCls == DaggerSaver:
 
         # under NFS only
-        shared_path = "/mnt/rpl_project/"
+        # shared_path = "/mnt/rpl_project/"
+        shared_path = SHARED_PATH
         path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
-
+        
         # Debugging
         print("Loading config from: {}".format(path))
 

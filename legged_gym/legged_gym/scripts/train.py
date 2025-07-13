@@ -64,7 +64,8 @@ def train(args):
     # if has attribute custom in env_cfg, use it to set the log root
     if hasattr(env_cfg, 'custom'):
         if env_cfg.custom.shared_path == True: # type: ignore
-            shared_log_root = os.path.join(env_cfg.custom.logs_root, env_cfg.custom.name) # type: ignore
+            shared_log_root = "shared"
+            # shared_log_root = os.path.join(env_cfg.custom.logs_root, env_cfg.custom.name) # type: ignore
 
             ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg, log_root=shared_log_root)
         else:

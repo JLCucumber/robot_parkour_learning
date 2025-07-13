@@ -8,9 +8,15 @@ from legged_gym.utils.helpers import merge_dict
 from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go2RoughCfgPPO
 
 multi_process_ = True
+# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+shared_path = ${SHARED_PATH}  # Change this to your shared path if needed
+logs_root = osp.join(shared_path, "logs")  # shared path for NFS
+data_root = osp.join(shared_path, "data")  # shared path for NFS
+# logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
+
 class Go2DistillCfg( Go2FieldCfg ):
     class custom( Go2FieldCfg.custom ):
-
+        
         name = "distill_go2"
         
     class env( Go2FieldCfg.env ):
@@ -136,8 +142,6 @@ class Go2DistillCfg( Go2FieldCfg ):
     class sim( Go2FieldCfg.sim ):
         no_camera = False
     
-# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
 
 class Go2DistillCfgPPO( Go2FieldCfgPPO ):
     class algorithm( Go2FieldCfgPPO.algorithm ):
@@ -220,7 +224,7 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
         if multi_process_:
             pretrain_iterations = -1
             class pretrain_dataset:
-                data_dir = "/mnt/rpl_project/data"
+                data_dir = data_root
                 dataset_loops = -1
                 random_shuffle_traj_order = True
                 keep_latest_n_trajs = 1500
