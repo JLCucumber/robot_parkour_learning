@@ -1,4 +1,9 @@
 """ The script to collect demonstrations for the legged robot """
+# 1. Embedded with the network file transfer feature
+# 2. Monitor the trajectories, pack N trajectories into one file, and upload to a bucket
+# 3. 
+
+
 import isaacgym
 from collections import OrderedDict
 import torch
