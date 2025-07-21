@@ -102,7 +102,7 @@ def play(args):
             # "discrete_rect",
             "wave",
         ]
-        env_cfg.terrain.BarrierTrack_kwargs["leap"]["fake_offset"] = 0.1
+        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["fake_offset"] = 0.1
         env_cfg.terrain.BarrierTrack_kwargs["draw_virtual_terrain"] = True
     else:
         env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)

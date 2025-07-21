@@ -106,3 +106,17 @@ rm -rf path
 
 
 ssh -L 8081:ruddy-l.cs.ucl.ac.uk:8443 hongboli@knuckles.cs.ucl.ac.uk
+
+
+# Quick Start 7+1 GPU training and collection
+
+## Step 0:
+
+remove data in remote servers:
+rm -rf /mnt/rpl_projects/data/*
+
+## Step 1: Launch Training on lab 4090 in Tmux
+
+## Step 2: Launch Sync bash
+
+in 

@@ -256,6 +256,7 @@ class OnPolicyRunner:
         torch.save(run_state_dict, path)
 
     def load(self, path, load_optimizer=True):
+        print(f"\033[1;36m Loaded model from {path} at iteration {self.current_learning_iteration} \033[0m")
         loaded_dict = torch.load(path)
         if self.cfg.get("ckpt_manipulator", False):
             # suppose to be a string specifying which function to use
@@ -267,6 +268,9 @@ class OnPolicyRunner:
             print("\033[1;36m Done: using a hacky way to load the model. \033[0m")
         self.alg.load_state_dict(loaded_dict)
         self.current_learning_iteration = loaded_dict['iter']
+
+        # print log info
+        
         if self.cfg.get("ckpt_manipulator", False):
             try:
                 self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
