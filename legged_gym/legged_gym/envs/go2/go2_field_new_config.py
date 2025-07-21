@@ -23,8 +23,8 @@ class Go2FieldCfg( Go2RoughCfg ):
             latency_range = [0.005, 0.045] # [s]
 
     class terrain( Go2RoughCfg.terrain ):
-        num_rows = 10
-        num_cols = 40
+        num_rows = 5
+        num_cols = 20
         selected = "BarrierTrack"
         slope_treshold = 20.
 

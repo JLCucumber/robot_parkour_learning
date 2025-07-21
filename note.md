@@ -50,7 +50,9 @@ cd robot_parkour_learning/legged_gym/
  
 STEP 2
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
-export LD_LIBRARY_PATH=/home/jlcucumber/miniforge3/envs/isaacgym_parkour_lhb/lib
+export LD_LIBRARY_PATH=/home/data/environments/isaac_gym_parkour/lib
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+
 
 STEP 3
 python legged_gym/scripts/train.py --headless --task go2_distill
@@ -119,4 +121,14 @@ rm -rf /mnt/rpl_projects/data/*
 
 ## Step 2: Launch Sync bash
 
-in 
+
+---
+# tensorboard
+python legged_gym/scripts/play.py --task go2_distill --load_run /home/data/projects/robot_parkour_learning/legged_gym/logs/distill_go2/Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28
+
+tensorboard --logdir=/home/data/projects/robot_parkour_learning/legged_gym/logs/distill_go2/Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28
+
+
+# Launch IsaacGym On  my laptop
+
+cd robot_parkour_learning/legged_gym

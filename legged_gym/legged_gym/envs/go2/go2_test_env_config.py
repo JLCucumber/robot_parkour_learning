@@ -5,13 +5,10 @@ from collections import OrderedDict
 
 from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO
 
-logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
 class Go2FieldCfg( Go2RoughCfg ):
     class custom( Go2RoughCfg.custom ):
-        shared_path = False
         name="field_go2"
-        # logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
-
+        logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
 
     class init_state( Go2RoughCfg.init_state ):
         pos = [0.0, 0.0, 0.7]
@@ -23,8 +20,8 @@ class Go2FieldCfg( Go2RoughCfg ):
             latency_range = [0.005, 0.045] # [s]
 
     class terrain( Go2RoughCfg.terrain ):
-        num_rows = 10
-        num_cols = 40
+        num_rows = 5
+        num_cols = 0
         selected = "BarrierTrack"
         slope_treshold = 20.
 
@@ -35,13 +32,13 @@ class Go2FieldCfg( Go2RoughCfg ):
         BarrierTrack_kwargs = dict(
             options= [
                 "jump",
-                "leap",
+                # "leap",
                 "hurdle",
                 "down",
-                # "tilted_ramp",
+                "tilted_ramp",
                 "stairsup",
                 "stairsdown",
-                "discrete_rect",
+                # "discrete_rect",
                 "slope",
                 "wave",
             ], # each race track will permute all the options
@@ -50,12 +47,12 @@ class Go2FieldCfg( Go2RoughCfg ):
                 depth= [0.1, 0.3],
                 # fake_offset= 0.1,
             ),
-            leap= dict(
-                length= [0.05, 0.6],
-                depth= [0.5, 0.8],
-                height= 0.2, # expected leap height over the gap
-                # fake_offset= 0.1,
-            ),
+            # leap= dict(
+            #     length= [0.05, 0.8],
+            #     depth= [0.5, 0.8],
+            #     height= 0.2, # expected leap height over the gap
+            #     # fake_offset= 0.1,
+            # ),
             hurdle= dict(
                 height= [0.05, 0.5],
                 depth= [0.2, 0.5],
@@ -66,14 +63,14 @@ class Go2FieldCfg( Go2RoughCfg ):
                 height= [0.1, 0.6],
                 depth= [0.3, 0.5],
             ),
-            # tilted_ramp= dict(
-            #     tilt_angle= [0.2, 0.5],
-            #     switch_spacing= 0.,
-            #     spacing_curriculum= False,
-            #     overlap_size= 0.2,
-            #     depth= [-0.1, 0.1],
-            #     length= [0.6, 1.2],
-            # ),
+            tilted_ramp= dict(
+                tilt_angle= [0.2, 0.5],
+                switch_spacing= 0.,
+                spacing_curriculum= False,
+                overlap_size= 0.2,
+                depth= [-0.1, 0.1],
+                length= [0.6, 1.2],
+            ),
             slope= dict(
                 slope_angle= [0.2, 0.42],
                 length= [1.2, 2.2],
@@ -111,12 +108,12 @@ class Go2FieldCfg( Go2RoughCfg ):
                 num_steps= [3, 19],
                 num_steps_curriculum= True,
             ),
-            discrete_rect= dict(
-                max_height= [0.05, 0.2],
-                max_size= 0.6,
-                min_size= 0.2,
-                num_rects= 10,
-            ),
+            # discrete_rect= dict(
+            #     max_height= [0.05, 0.2],
+            #     max_size= 0.6,
+            #     min_size= 0.2,
+            #     num_rects= 10,
+            # ),
             wave= dict(
                 amplitude= [0.1, 0.15], # in meter
                 frequency= [0.6, 1.0], # in 1/meter
@@ -194,7 +191,8 @@ class Go2FieldCfg( Go2RoughCfg ):
         penetrate_depth_threshold_easier = 200
         no_moveup_when_fall = True
     
-# logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
+# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
 
 class Go2FieldCfgPPO( Go2RoughCfgPPO ):
     class algorithm( Go2RoughCfgPPO.algorithm ):

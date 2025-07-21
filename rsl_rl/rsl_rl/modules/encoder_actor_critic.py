@@ -70,8 +70,8 @@ class EncoderActorCriticMixin:
 
     def prepare_obs_slices(self):
         # NOTE: encoders are stored in the order of obs_component_names respectively.
-        #   latents_order stores the order of how each output latent should be concatenated with
-        #   the rest of the obs vector.
+        #   latents_order stores the order of how each output latent should be concatenated with the rest of the obs vector.
+        
         self.encoder_obs_slices = [get_obs_slice(self.obs_segments, name) for name in self.encoder_component_names]
         self.latents_order = [i for i in range(len(self.encoder_obs_slices))]
         self.latents_order.sort(key= lambda i: self.encoder_obs_slices[i][0].start)
@@ -84,7 +84,13 @@ class EncoderActorCriticMixin:
                 self.critic_latents_order = [i for i in range(len(self.critic_encoder_obs_slices))]
                 self.critic_latents_order.sort(key= lambda i: self.critic_encoder_obs_slices[i][0].start)
 
+
     def build_encoders(self, component_names, class_name, obs_slices, kwargs, encoder_output_size):
+        """ Build the encoders for the specified component names.
+        structure of encoders:
+        - MlpModel: input_size, hidden_sizes, output_size
+        - Conv2dHeadModel: input_shape, hidden_sizes, output_size
+        """
         encoders = nn.ModuleList()
         for component_i, name in enumerate(component_names):
             model_class_name = class_name[component_i] if isinstance(class_name, (tuple, list)) else class_name
@@ -112,7 +118,10 @@ class EncoderActorCriticMixin:
                 raise NotImplementedError(f"Encoder for {model_class_name} on {name} not implemented")
         return encoders
     
+
     def embed_encoders_latent(self, observations, obs_slices, encoders, latents_order):
+        """ Embed the observations with the encoders and return the embedded observations.
+        """
         leading_dims = observations.shape[:-1]
         latents = []
         for encoder_i, encoder in enumerate(encoders):

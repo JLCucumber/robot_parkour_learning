@@ -66,7 +66,7 @@ class BarrierTrack:
                 length= [1.2, 2.], # [m] the length of the slope along x-axis
                 use_mean_height_offset= True, # if set, the height offset for following terrain. Otherwise, zero.
                 no_perlin_rate= 0.5, # the rate of no perlin noise on the slope
-                length_curriculum= False, # if True, length will depend on difficulty if possible. greater length as more difficulty.
+                length_curriculum= False, # if True, length will depend on difficulty if possible. greater length as more difficulty. # doesn't make sense
             ),
             stairsup= dict(
                 height= 0.2, # [m] the height of each step

@@ -94,16 +94,75 @@ def play(args):
         env_cfg.terrain.num_cols = 8
         env_cfg.terrain.BarrierTrack_kwargs["options"] = [
             "jump",
-            # "leap",
+            "leap",
             "down",
             "hurdle",
-            "tilted_ramp",
+            # "tilted_ramp",  # useless
+            # "slope",        # almost useless
             "stairsup",
-            # "discrete_rect",
-            "wave",
+            "discrete_rect",
+            "wave",           # This wave isn't continuous, need to be fixed
+ 
         ]
+
+        # length= [0.05, 0.8],
+        # depth= [0.5, 0.8],
+
+
+        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["length"] = [0.3, 0.55]
+        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["depth"] = [0.5, 0.8]
+        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["height"] = 0.3 # expected leap height over the gap
+
+
+        # env_cfg.terrain.BarrierTrack_kwargs["hurdle"]["height"] = [0.05, 0.5]
+        # env_cfg.terrain.BarrierTrack_kwargs["hurdle"]["depth"] = [0.2, 0.5]
+        # env_cfg.terrain.BarrierTrack_kwargs["hurdle"]["curved_top_rate"] = 0.1
+
+        # useless
+        # env_cfg.terrain.BarrierTrack_kwargs["tilted_ramp"]["tilt_angle"] = [0.2, 0.5]
+        # env_cfg.terrain.BarrierTrack_kwargs["tilted_ramp"]["switch_spacing"] = 1.
+        # env_cfg.terrain.BarrierTrack_kwargs["tilted_ramp"]["spacing_curriculum"] = False
+        # env_cfg.terrain.BarrierTrack_kwargs["tilted_ramp"]["overlap_size"] = 0.2
+        # env_cfg.terrain.BarrierTrack_kwargs["tilted_ramp"]["depth"] = [-0.1, 0.1]
+        # env_cfg.terrain.BarrierTrack_kwargs["tilted_ramp"]["length"] = [0.6, 1.2]
+
+        # env_cfg.terrain.BarrierTrack_kwargs["slope"]["slope_angle"] = [0.2, 0.42]
+        # env_cfg.terrain.BarrierTrack_kwargs["slope"]["length"] = [1.2, 2.2]
+        # env_cfg.terrain.BarrierTrack_kwargs["slope"]["use_mean_height_offset"] = True
+        # env_cfg.terrain.BarrierTrack_kwargs["slope"]["face_angle"] = [-3.14, 0, 1.57, -1.57]
+        # env_cfg.terrain.BarrierTrack_kwargs["slope"]["no_perlin_rate"] = 0.2
+        # env_cfg.terrain.BarrierTrack_kwargs["slope"]["length_curriculum"] = True
+
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsup"]["height"] = [0.1, 0.3]
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsup"]["length"] = [0.3, 0.5]
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsup"]["residual_distance"] = 0.05
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsup"]["num_steps"] = [3, 19]
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsup"]["num_steps_curriculum"] = True
+
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"]["max_height"] = [0.05, 0.2]
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"]["max_size"] = 0.4
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"]["min_size"] = 0.2
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"]["num_rects"] = 30
+
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsdown"]["height"] = [0.1, 0.3]
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsdown"]["length"] = [0.3, 0.5]
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsdown"]["residual_distance"] = 0.05
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsdown"]["num_steps"] = [3, 19]
+        # env_cfg.terrain.BarrierTrack_kwargs["stairsdown"]["num_steps_curriculum"] = True
+
+
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"][max_height] = [0.05, 0.2]
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"][max_size] = 0.6
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"][min_size] = 0.2
+        # env_cfg.terrain.BarrierTrack_kwargs["discrete_rect"][num_rects] = 10
+
+        # env_cfg.terrain.BarrierTrack_kwargs["wave"]["amplitude"] = [0.1, 0.15] # in meter
+        # env_cfg.terrain.BarrierTrack_kwargs["wave"]["frequency"] = [0.6, 1.0] # in 1/meter
+
         # env_cfg.terrain.BarrierTrack_kwargs["leap"]["fake_offset"] = 0.1
         env_cfg.terrain.BarrierTrack_kwargs["draw_virtual_terrain"] = True
+
+        
     else:
         env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
         env_cfg.env.episode_length_s = 60
@@ -112,30 +171,34 @@ def play(args):
         env_cfg.terrain.max_init_terrain_level = 0
         env_cfg.terrain.num_rows = 1
         env_cfg.terrain.num_cols = 1
+
+
     # env_cfg.terrain.curriculum = False
     # env_cfg.asset.fix_base_link = True
     env_cfg.env.episode_length_s = 1000
     env_cfg.commands.resampling_time = int(1e16)
-    env_cfg.commands.ranges.lin_vel_x = [1.2, 1.2]
+    env_cfg.commands.ranges.lin_vel_x = [1.6, 1.6]
     env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.init_base_pos_range = dict(
-        x= [0.6, 0.6],
-        y= [-0.05, 0.05],
+        x= [0., 0.0],
+        y= [-0.00, 0.00],
+        # x= [0.6, 0.6],
+        # y= [-0.05, 0.05],
     )
     # env_cfg.termination.termination_terms = []
     env_cfg.termination.timeout_at_border = False
     env_cfg.termination.timeout_at_finished = False
 
-    # debug settings
+    ##### debug settings#####
     env_cfg.viewer.debug_viz = True
-    env_cfg.viewer.draw_measure_heights = True
+    env_cfg.viewer.draw_measure_heights = False
     env_cfg.viewer.draw_height_measurements = False
     env_cfg.viewer.draw_volume_sample_points = False
-    env_cfg.viewer.draw_sensors = False
-    env_cfg.viewer.draw_commands = False
+    env_cfg.viewer.draw_sensors = True
+    env_cfg.viewer.draw_commands = True
 
-    env_cfg.viewer.draw_sensor_readings = False
-    env_cfg.viewer.forward_depth_as_pointcloud = False
+    env_cfg.viewer.draw_sensor_readings = True
+    env_cfg.viewer.forward_depth_as_pointcloud = True
 
     if hasattr(env_cfg.terrain, "BarrierTrack_kwargs"):
         env_cfg.terrain.BarrierTrack_kwargs["draw_virtual_terrain"] = True
@@ -206,6 +269,7 @@ def play(args):
     policy = ppo_runner.get_inference_policy(device=env.device)
     if args.sample:
         policy = agent_model.act
+
     ### get obs_slice to read the obs
     # obs_slice = get_obs_slice(env.obs_segments, "engaging_block")
     
@@ -555,7 +619,7 @@ if __name__ == '__main__':
         dict(name= "--record", action= "store_true", default= False, help= "record frames"),
         dict(name= "--frames_dir", type= str, default= "images", help= "which folder to store intermediate recorded frames."),
     ])
-    MOVE_CAMERA = (args.num_envs is None)
+    MOVE_CAMERA = False #(args.num_envs is None)
     CAMERA_FOLLOW = MOVE_CAMERA
     RECORD_FRAMES = args.record
     try:

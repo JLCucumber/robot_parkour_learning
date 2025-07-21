@@ -34,7 +34,9 @@ from datetime import datetime
 
 import isaacgym
 from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from legged_gym.utils import  get_args, export_policy_as_jit, Logger
+from legged_gym.utils.task_registry import task_registry
+
 
 import torch
 
@@ -42,7 +44,7 @@ import torch
 def test_env(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs =  min(env_cfg.env.num_envs, 10)
+    env_cfg.env.num_envs =  min(env_cfg.env.num_envs, 1)
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
