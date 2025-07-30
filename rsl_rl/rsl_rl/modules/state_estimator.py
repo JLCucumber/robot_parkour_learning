@@ -156,6 +156,7 @@ class EstimatorMixin:
                 self.memory_s.hidden_states,
                 return_.actor,
             ))
+            # print(f"shape of EstimatorMixin.get_hidden_states: {len(return_)}")
         return return_
     
 class StateAc(EstimatorMixin, ActorCritic):

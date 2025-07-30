@@ -30,9 +30,9 @@
 
 from .actor_critic import ActorCritic
 from .actor_critic_recurrent import ActorCriticRecurrent
-from .visual_actor_critic import VisualDeterministicRecurrent, VisualDeterministicAC
-from .actor_critic_mutex import ActorCriticMutex
-from .actor_critic_field_mutex import ActorCriticFieldMutex, ActorCriticClimbMutex
+# from .visual_actor_critic import VisualDeterministicRecurrent, VisualDeterministicAC
+# from .actor_critic_mutex import ActorCriticMutex
+# from .actor_critic_field_mutex import ActorCriticFieldMutex, ActorCriticClimbMutex
 from .encoder_actor_critic import EncoderActorCriticMixin, EncoderActorCritic, EncoderActorCriticRecurrent
 from .state_estimator import EstimatorMixin, StateAc, StateAcRecurrent
 from .all_mixer import EncoderStateAc, EncoderStateAcRecurrent
