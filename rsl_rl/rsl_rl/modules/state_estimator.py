@@ -103,6 +103,12 @@ class EstimatorMixin:
             # SOLUTION: modify the code of Memory module, use masks= None to stop the unpadding.
             self.estimated_state_ = self.state_estimator(input_s)
             use_estimated_state_mask = torch.rand_like(observations[..., 0]) < self.replace_state_prob
+            
+            # print(f"[DEBUG] EstimatorMixin: shape of subobs = {subobs.shape}")
+            # print(f"[DEBUG] EstimatorMixin: shape of input_s = {input_s.shape}")
+            # print(f"[DEBUG] EstimatorMixin: shape of estimated_state = {self.estimated_state_.shape}")
+            # print(f"[DEBUG] EstimatorMixin: shape of use_estimated_state_mask = {use_estimated_state_mask.shape}")
+
             observations[use_estimated_state_mask] = substitute_estimated_state(
                 observations[use_estimated_state_mask],
                 self.estimator_target_components,

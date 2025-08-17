@@ -184,6 +184,7 @@ class LeggedRobotFieldMixin:
         return super()._push_robots()
     
     def _get_terrain_curriculum_move(self, env_ids):
+
         distance = torch.norm(self.root_states[env_ids, :2] - self.env_origins[env_ids, :2], dim=1)
         moved = distance > (self.terrain.env_block_length * 1.5) # 0.1 is the guess of robot touching the obstacle block.
         less_moved = torch.logical_and(

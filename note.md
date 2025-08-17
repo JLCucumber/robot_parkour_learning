@@ -56,6 +56,9 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 STEP 3
 python legged_gym/scripts/train.py --headless --task go2_distill
+python legged_gym/scripts/train.py --headless --task go2_field
+
+
 
 python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul08_18-44-07_Go2_8skills_fromMay26_20-05-28/
 python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/ --sim_device=cuda:0 --rl_device=cuda:0 --graphics_device_id=0

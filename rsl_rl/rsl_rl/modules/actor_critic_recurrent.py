@@ -116,7 +116,7 @@ class Memory(torch.nn.Module):
                 self.hidden_states = tuple(self.hidden_states)
             out, self.hidden_states = self.rnn(input.unsqueeze(0), self.hidden_states)
             if isinstance(self.hidden_states, tuple):
-                self.hidden_states = LstmHiddenState(*self.hidden_states)
+                self.hidden_states = LstmHiddenState(*self.hidden_states)   # ??? why? 
             out = out.squeeze(0) # remove the time dimension
         return out
 

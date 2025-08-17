@@ -59,6 +59,7 @@ class EncoderActorCriticMixin:
             self.encoder_kwargs,
             self.encoder_output_size,
         )
+        
         if not (self.critic_encoder_component_names is None or self.critic_encoder_component_names == "shared"):
             self.critic_encoders = self.build_encoders(
                 self.critic_encoder_component_names,

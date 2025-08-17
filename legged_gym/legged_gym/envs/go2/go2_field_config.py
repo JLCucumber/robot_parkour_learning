@@ -98,19 +98,19 @@ class Go2FieldCfg( Go2RoughCfg ):
                 no_perlin_rate= 0.2,
                 length_curriculum= True,
             ),
-            stairsup= dict(
-                height= [0.1, 0.3],
-                length= [0.3, 0.5],
-                residual_distance= 0.05,
-                num_steps= [3, 19],
-                num_steps_curriculum= True,
-            ),
-            stairsdown= dict(
-                height= [0.1, 0.3],
-                length= [0.3, 0.5],
-                num_steps= [3, 19],
-                num_steps_curriculum= True,
-            ),
+            # stairsup= dict(
+            #     height= [0.1, 0.3],
+            #     length= [0.3, 0.5],
+            #     residual_distance= 0.05,
+            #     num_steps= [3, 19],
+            #     num_steps_curriculum= True,
+            # ),
+            # stairsdown= dict(
+            #     height= [0.1, 0.3],
+            #     length= [0.3, 0.5],
+            #     num_steps= [3, 19],
+            #     num_steps_curriculum= True,
+            # ),
             discrete_rect= dict(
                 max_height= [0.05, 0.2],
                 max_size= 0.6,
