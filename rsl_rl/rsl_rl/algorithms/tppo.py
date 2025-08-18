@@ -131,8 +131,20 @@ class TPPO(PPO):
         """ The interface to collect transition from dataset rather than env """
         super().act(transition.observation, transition.privileged_observation)
         self.transition.action_labels = transition.action
-        super().process_env_step(transition.reward, transition.done, infos, transition.next_observation, transition.next_privileged_observation)
 
+        # newly added
+        if hasattr(transition, 'teacher_advantages') and transition.teacher_advantages is not None:
+            self.transition.teacher_advantages = transition.teacher_advantages
+            self.transition.positive_advantages = transition.positive_advantages
+            self.transition.difficulty_scores = transition.difficulty_scores
+        
+        super().process_env_step(
+            transition.reward, 
+            transition.done, 
+            infos, 
+            transition.next_observation, 
+            transition.next_privileged_observation
+        )
     def compute_returns(self, last_critic_obs):
         if not self.using_ppo:
             return
@@ -222,6 +234,30 @@ class TPPO(PPO):
             dist_loss = -action_labels_log_prob
         elif self.distill_target == "kl":
             raise NotImplementedError()
+        
+        # 优势加权处理
+        if hasattr(minibatch, 'positive_advantages') and minibatch.positive_advantages is not None:
+            advantage_weights = self.compute_advantage_weights(minibatch.positive_advantages)
+            
+            # 应用权重到蒸馏损失
+            final_dist_loss = (dist_loss * advantage_weights).mean()
+            
+            # 记录统计信息
+            if hasattr(self, 'writer') and self.writer is not None:
+                self.log_advantage_weights(advantage_weights, dist_loss)
+            
+            # 存储权重统计到 stats
+            stats.update({
+                'advantage_weights_mean': advantage_weights.mean(),
+                'advantage_weights_std': advantage_weights.std(),
+                'advantage_weights_max': advantage_weights.max(),
+                'high_weight_ratio': (advantage_weights > 0.7).float().mean(),
+                'unweighted_dist_loss': dist_loss.mean(),  # 对比用
+            })
+        else:
+            final_dist_loss = dist_loss.mean()
+            advantage_weights = torch.ones_like(dist_loss)
+
 
         if "tanh" in self.distill_target:
             stats["l1distance"] = torch.norm(
@@ -234,9 +270,12 @@ class TPPO(PPO):
                 dim= -1,
                 p= 1
             ).mean().detach()
+
         # update distillation loss coef if applicable
         self.distillation_loss_coef = self.distillation_loss_coef_func(self.current_learning_iteration) if hasattr(self, "distillation_loss_coef_func") else self.__distillation_loss_coef
-        losses["distillation_loss"] = dist_loss.mean()
+        
+        losses["distillation_loss"] = final_dist_loss
+
 
         # distill latent embedding
         if self.distill_latent_obs_component_mapping is not None:
@@ -285,3 +324,56 @@ class TPPO(PPO):
                 losses[f"distill_latent_{k}"] = dist_loss.mean()
 
         return losses, inter_vars, stats
+
+    def compute_advantage_weights(self, positive_advantages, method='percentile'):
+        """计算优势权重"""
+        if positive_advantages.numel() == 0:
+            return torch.ones_like(positive_advantages)
+        
+        positive_advantages = positive_advantages.squeeze(-1)  # 去掉最后一维
+        
+        # 过滤掉零值
+        non_zero_mask = positive_advantages > 0
+        if not non_zero_mask.any():
+            return torch.ones_like(positive_advantages)
+        
+        if method == 'percentile':
+            # 方法1：分位数归一化 + 截断
+            p95 = torch.quantile(positive_advantages[non_zero_mask], 0.95)
+            weights = torch.clamp(positive_advantages / (p95 + 1e-8), max=1.0)
+        elif method == 'softmax':
+            # 方法2：softmax 归一化
+            tau = torch.quantile(positive_advantages[non_zero_mask], 0.9)
+            weights = torch.softmax(positive_advantages / (tau + 1e-8), dim=0) * len(positive_advantages)
+            weights = torch.clamp(weights, max=1.0)
+        else:
+            weights = torch.ones_like(positive_advantages)
+        
+        return weights.detach()  # 不参与梯度计算
+
+    def log_advantage_weights(self, weights, losses):
+        """记录优势权重的详细统计"""
+        if not hasattr(self, 'writer') or self.writer is None:
+            return
+            
+        # 权重统计
+        self.writer.add_scalar('AW-BC/weight_mean', weights.mean(), self.current_learning_iteration)
+        self.writer.add_scalar('AW-BC/weight_std', weights.std(), self.current_learning_iteration)
+        self.writer.add_scalar('AW-BC/weight_max', weights.max(), self.current_learning_iteration)
+        self.writer.add_scalar('AW-BC/weight_min', weights.min(), self.current_learning_iteration)
+        
+        # 高权重样本占比
+        high_weight_ratio = (weights > 0.7).float().mean()
+        self.writer.add_scalar('AW-BC/high_weight_ratio', high_weight_ratio, self.current_learning_iteration)
+        
+        # 分桶损失分析
+        try:
+            weight_quantiles = torch.quantile(weights, torch.tensor([0.5, 0.75, 0.9], device=weights.device))
+            for i, q in enumerate([0.5, 0.75, 0.9]):
+                mask = weights >= weight_quantiles[i]
+                if mask.sum() > 0:
+                    bucket_loss = losses[mask].mean()
+                    self.writer.add_scalar(f'AW-BC/loss_Q{int(q*100)}', bucket_loss, self.current_learning_iteration)
+        except:
+            # 如果样本数太少，跳过分桶分析
+            pass

@@ -102,14 +102,19 @@ class DemonstrationSaver:
     @torch.no_grad()
     def collect_step(self, step_i):
         """ Collect one step of demonstration data """
-        actions, rewards, dones, infos, n_obs, n_critic_obs = self.get_transition()
 
-        self.build_transition(step_i, actions, rewards, dones, infos)
+        self.obs, self.critic_obs = self.env.get_observations(), self.env.get_privileged_observations()
+
+        actions, rewards, dones, infos, n_obs, n_critic_obs, teacher_values = self.get_transition()
+
+        self.build_transition(step_i, actions, rewards, dones, infos, teacher_values)
         self.add_transition(step_i, infos)
         self.transition.clear()
 
         self.policy_reset(dones)
         self.obs, self.critic_obs = n_obs, n_critic_obs
+
+        return dones, infos
 
     def get_policy_actions(self):
         if self.use_critic_obs and self.demo_by_sample:
@@ -124,21 +129,36 @@ class DemonstrationSaver:
 
     def get_transition(self):
         actions = self.get_policy_actions()
+        
+        # 计算教师价值函数
+        with torch.no_grad():
+            if self.use_critic_obs:
+                teacher_values = self.policy.critic(self.critic_obs)
+            else:
+                teacher_values = self.policy.critic(self.obs)
+        
         n_obs, n_critic_obs, rewards, dones, infos = self.env.step(actions)
-        return actions, rewards, dones, infos, n_obs, n_critic_obs
+        return actions, rewards, dones, infos, n_obs, n_critic_obs, teacher_values
 
-    def build_transition(self, step_i, actions, rewards, dones, infos):
+    def build_transition(self, step_i, actions, rewards, dones, infos, teacher_values=None):
         """ Fill the transition to meet the interface of rollout storage """
         self.transition.observations = self.obs
-        if not self.critic_obs is None: self.transition.critic_observations = self.critic_obs
+        if not self.critic_obs is None: 
+            self.transition.critic_observations = self.critic_obs
+
         # if self.policy.is_recurrent:
         #     self.transition.hidden_states = self.policy.get_hidden_states()
         self.transition.actions = actions
         self.transition.rewards = rewards
         self.transition.dones = dones
 
+        # store teacher value function
+        if teacher_values is not None:
+            self.transition.values = teacher_values
+        else:
+            self.transition.values = torch.zeros_like(rewards).unsqueeze(-1)
+
         # fill up some of the attributes to meet the interface of rollout storage, but not collected to files
-        self.transition.values = torch.zeros_like(rewards).unsqueeze(-1)
         self.transition.actions_log_prob = torch.zeros_like(rewards)
         self.transition.action_mean = torch.zeros_like(actions)
         self.transition.action_sigma = torch.zeros_like(actions)
@@ -180,16 +200,58 @@ class DemonstrationSaver:
         self.metadata["total_trajectories"] = self.total_traj_completed
         with open(osp.join(self.save_dir, 'metadata.json'), 'w') as f:
             json.dump(self.metadata, f, indent= 4)
-
+    
+    def compute_gae_advantages(self, rewards, values, dones, gamma=0.99, gae_lambda=0.95):
+        """计算 GAE 优势函数"""
+        advantages = torch.zeros_like(rewards)
+        gae = 0
+        
+        # 从后往前计算
+        for t in reversed(range(len(rewards))):
+            if t == len(rewards) - 1:
+                next_value = 0  # 终端状态
+            else:
+                next_value = values[t + 1]
+            
+            # TD 误差
+            delta = rewards[t] + gamma * next_value * (1 - dones[t]) - values[t]
+            
+            # GAE 累积
+            gae = delta + gamma * gae_lambda * (1 - dones[t]) * gae
+            advantages[t] = gae
+        
+        return advantages
+    
     def wrap_up_trajectory(self, env_i, step_slice):
         # wrap up from the rollout_storage based on `step_slice`. Thus, `step_slice` must include
         # the `done` step if exist.
+
+        # 提取数据
+        observations = self.rollout_storage.observations[step_slice, env_i].cpu()
+        actions = self.rollout_storage.actions[step_slice, env_i].cpu()
+        rewards = self.rollout_storage.rewards[step_slice, env_i].cpu()
+        dones = self.rollout_storage.dones[step_slice, env_i].cpu()
+        values = self.rollout_storage.values[step_slice, env_i].cpu().squeeze(-1)
+        
+        # 计算 GAE 优势
+        advantages = self.compute_gae_advantages(rewards, values, dones)
+        
+        # 计算正优势和难度分数
+        positive_advantages = torch.clamp(advantages, min=0.0)
+        
+        # # 简单的难度分数（后续可扩展）
+        difficulty_scores = positive_advantages.clone()
+
+
         trajectory = dict(
             privileged_observations= self.rollout_storage.privileged_observations[step_slice, env_i].cpu().numpy(),
             actions= self.rollout_storage.actions[step_slice, env_i].cpu().numpy(),
             rewards= self.rollout_storage.rewards[step_slice, env_i].cpu().numpy(),
             dones= self.rollout_storage.dones[step_slice, env_i].cpu().numpy(),
             values= self.rollout_storage.values[step_slice, env_i].cpu().numpy(),
+            advantages=advantages.numpy(),                      # newly added
+            positive_advantages=positive_advantages.numpy(),    # newly added
+            difficulty_scores=difficulty_scores.numpy(),
         )
         # compress observations components if set
         if not self.obs_disassemble_mapping is None:

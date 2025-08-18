@@ -417,40 +417,100 @@ class ActionLabelRollout(QueueRolloutStorage):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.action_labels = None
-    
+            # newly added segments
+            self.teacher_advantages = None
+            self.positive_advantages = None
+            self.difficulty_scores = None
+
     MiniBatch = namedtuple("MiniBatch", [
         *RolloutStorage.MiniBatch._fields,
         "action_labels",
+        # newly added
+        "teacher_advantages",
+        "positive_advantages",
+        "difficulty_scores",
     ])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_labels = torch.zeros_like(self.actions)
+        # newly added
+        self.teacher_advantages = torch.zeros(self.num_transitions_per_env, self.num_envs, 1, device=self.device)
+        self.positive_advantages = torch.zeros(self.num_transitions_per_env, self.num_envs, 1, device=self.device)
+        self.difficulty_scores = torch.zeros(self.num_transitions_per_env, self.num_envs, 1, device=self.device)
 
     def expand_buffer_once(self):
         expand_size = super().expand_buffer_once()
+
         self.action_labels = torch.cat([
             self.action_labels,
             torch.zeros(expand_size, self.num_envs, *self.actions_shape, device=self.device),
         ], dim= 0).contiguous()
+
+        # 扩展新字段
+        self.teacher_advantages = torch.cat([
+            self.teacher_advantages,
+            torch.zeros(expand_size, self.num_envs, 1, device=self.device),
+        ], dim=0).contiguous()
+        
+        self.positive_advantages = torch.cat([
+            self.positive_advantages,
+            torch.zeros(expand_size, self.num_envs, 1, device=self.device),
+        ], dim=0).contiguous()
+        
+        self.difficulty_scores = torch.cat([
+            self.difficulty_scores,
+            torch.zeros(expand_size, self.num_envs, 1, device=self.device),
+        ], dim=0).contiguous()
+
         return expand_size
 
     def add_transitions(self, transition: Transition):
         self.action_labels[self.step] = transition.action_labels
+
+        # 添加新字段
+        if hasattr(transition, 'teacher_advantages') and transition.teacher_advantages is not None:
+            self.teacher_advantages[self.step] = transition.teacher_advantages
+        if hasattr(transition, 'positive_advantages') and transition.positive_advantages is not None:
+            self.positive_advantages[self.step] = transition.positive_advantages  
+        if hasattr(transition, 'difficulty_scores') and transition.difficulty_scores is not None:
+            self.difficulty_scores[self.step] = transition.difficulty_scores
+
         return super().add_transitions(transition)
 
     def untie_buffer_loop(self):
         self.action_labels = self.swap_from_cursor(self.action_labels)
+
+        self.teacher_advantages = self.swap_from_cursor(self.teacher_advantages)
+        self.positive_advantages = self.swap_from_cursor(self.positive_advantages)
+        self.difficulty_scores = self.swap_from_cursor(self.difficulty_scores)
+
         return super().untie_buffer_loop()
     
     def get_minibatch_from_indices(self, T_slice, B_slice, padded_B_slice=None, prev_done_mask=None):
         minibatch = super().get_minibatch_from_indices(T_slice, B_slice, padded_B_slice, prev_done_mask)
+
+        # 提取新字段
         action_label_batch = self.action_labels[T_slice, B_slice]
+        teacher_advantages_batch = self.teacher_advantages[T_slice, B_slice]
+        positive_advantages_batch = self.positive_advantages[T_slice, B_slice]
+        difficulty_scores_batch = self.difficulty_scores[T_slice, B_slice]
+
+        
 
         if padded_B_slice is None:
             action_label_batch = action_label_batch.flatten(0, 1)
+            teacher_advantages_batch = teacher_advantages_batch.flatten(0, 1)
+            positive_advantages_batch = positive_advantages_batch.flatten(0, 1)
+            difficulty_scores_batch = difficulty_scores_batch.flatten(0, 1)
         
-        return ActionLabelRollout.MiniBatch(*minibatch, action_label_batch)
+        return ActionLabelRollout.MiniBatch(
+            *minibatch, 
+            action_label_batch, 
+            teacher_advantages_batch,
+            positive_advantages_batch,
+            difficulty_scores_batch
+        )
             
 class SarsaRolloutStorage(RolloutStorage):
     """ The rollout storage for SARSA algorithm and those who need the next state """

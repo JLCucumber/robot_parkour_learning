@@ -133,6 +133,10 @@ def main(args):
             forward_depth= "normalized_image",
         ),
         demo_by_sample= config["algorithm"].get("action_labels_from_sample", False),
+
+        # compute_advantages= True,
+        # gae_lambda= config.get("gae_lambda", 0.95),
+        # gamma= config.get("gamma", 0.99),
     )
     if RunnerCls == DaggerSaver:
         # kwargs for dagger saver
