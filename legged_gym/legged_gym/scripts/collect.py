@@ -98,6 +98,7 @@ def main(args):
     custom = getattr(env_cfg, 'custom', None)
     logs_root = getattr(custom, 'logs_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs'))
     print(f"[DEBUG] [COLLECT] Using logs_root: {logs_root}")
+    
     # 可选：跨节点路径 remap（环境变量优先，其次 CLI）
     remap_old_env = os.getenv("COLLECT_REMAP_OLD_BASE")
     remap_new_env = os.getenv("COLLECT_REMAP_NEW_BASE")
@@ -111,11 +112,13 @@ def main(args):
         new_dir = training_policy_logdir.replace(remap_old, remap_new, 1)
         print(f"[COLLECT] remap training_policy_logdir:\n  from: {training_policy_logdir}\n    to: {new_dir}")
         training_policy_logdir = new_dir
+        
     # config path used only in DAgger branch
     training_policy_log_cfg_path = osp.join(training_policy_logdir, "config.json") if args.load_run else None
 
     ### DEBUGGING
     print("[DEBUG] [COLLECT] Using task: {}".format(args.task))
+
     # args.log = True
     # args.load_run = "Jun27_14-58-44_Go2_10skills_fromMay26_20-05-28"
 

@@ -13,7 +13,7 @@
 DIR_NAME=${DIR_NAME:-"Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28/"}
 
 # 远端（通常是 C 端）日志目录
-REMOTE_DIR=${REMOTE_DIR:-"hongboli@scoter-l.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/${DIR_NAME}"}
+REMOTE_DIR=${REMOTE_DIR:-"hongboli@beachcomber.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/${DIR_NAME}"}
 
 # 本机（通常是 A 端）日志目录
 LOCAL_DIR=${LOCAL_DIR:-"/mnt/rpl_project/logs/distill_go2/${DIR_NAME}"}

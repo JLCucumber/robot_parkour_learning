@@ -2,6 +2,45 @@
 
 This file summarizes the minimal context to run and debug `--task go2_distill` across Local (A) and Shared/NFS (C) setups, plus where paths are resolved in code.
 
+## Quick start (copy-paste)
+
+### A: Local training (no NFS)
+```bash
+unset LEGGED_GYM_USE_SHARED_PATH
+python3 legged_gym/legged_gym/scripts/train.py --task go2_distill --headless
+```
+
+### Push logs to C (run on A) && Pull data back to A
+```bash
+export LOCAL_DIR="$(pwd)/legged_gym/logs/"
+export REMOTE_DIR="user@server:/abs/path/on_C/logs/"
+export DIR_NAME="distill_go2"
+export REMOTE_DIR="user@server:/abs/path/on_C/data/"
+export LOCAL_DIR="$(pwd)/legged_gym/data/"
+# ./network_test/sync_log_single.sh
+# ./network_test/sync_data_single.sh
+./network_test/sync_loop.sh
+```
+
+
+### C: Collect with remap (paths differ across nodes)
+```bash
+export COLLECT_REMAP_OLD_BASE="/home/data/datasets/robot_parkour_learning"   # /mnt/rpl_project
+export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
+export LEGGED_GYM_LOGS_ROOT="$COLLECT_REMAP_NEW_BASE/logs"
+export LEGGED_GYM_DATA_ROOT="$COLLECT_REMAP_NEW_BASE/data"
+python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <run_dir_from_A> --log
+```
+
+
+### Shared/NFS on both nodes (no remap)
+```bash
+export LEGGED_GYM_USE_SHARED_PATH=1
+export LEGGED_GYM_NFS_PATH=/mnt/rpl_project/$USER
+python3 legged_gym/legged_gym/scripts/train.py --task go2_distill --headless
+python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <run_dir> --log
+```
+
 ## Branch
 - Current branch: `ac-net-test`
 
@@ -21,6 +60,30 @@ This file summarizes the minimal context to run and debug `--task go2_distill` a
   - `legged_gym/envs/go2/go2_distill_config.py`
     - `Go2DistillCfg.custom` uses the same shared toggles (`LEGGED_GYM_USE_SHARED_PATH`, `LEGGED_GYM_NFS_PATH`) and sets `logs_root/data_root` accordingly.
     - Note: Some references (e.g., `teacher_ac_path`, `load_run`) may still use the module-level `logs_root` defined at top of file. Ensure they point to the desired root for your run.
+
+## Environment variables (quick reference)
+
+Core path controls (training, collect, play):
+- `LEGGED_GYM_USE_SHARED_PATH` (bool): enable shared/NFS mode. Default: off.
+  - Examples: `export LEGGED_GYM_USE_SHARED_PATH=1` or `true`
+- `LEGGED_GYM_NFS_PATH` (path): NFS root when shared is on. Default: `/mnt/rpl_project`.
+  - Example: `export LEGGED_GYM_NFS_PATH=/mnt/rpl_project/$USER`
+- `LEGGED_GYM_LOGS_ROOT` (path): explicit logs root override (highest priority). Optional.
+  - Example: `export LEGGED_GYM_LOGS_ROOT=/abs/custom/logs`
+- `LEGGED_GYM_DATA_ROOT` (path): explicit data root override (highest priority). Optional.
+  - Example: `export LEGGED_GYM_DATA_ROOT=/abs/custom/data`
+
+Collect cross-node remap (only if paths differ between nodes):
+- `COLLECT_REMAP_OLD_BASE` (path): old base prefix to replace, e.g. `/mnt/rpl_project`
+- `COLLECT_REMAP_NEW_BASE` (path): new base prefix, e.g. `/cs/.../network_test`
+- `COLLECT_SUMMARY_REMAP_ENABLE` (bool): `1/true/yes` to also remap SummaryWriter outputs. Default: auto-on when both bases set.
+
+Network sync scripts (`network_test/sync_*.sh`):
+- `REMOTE_DIR` (rsync target/src): e.g. `user@server:/abs/path/on_remote/data/` (note trailing slash)
+- `LOCAL_DIR` (local path): e.g. `$(pwd)/legged_gym/data/`
+- `PROXY_JUMP` (optional): SSH jump host, e.g. `user@jump-host`; empty for direct SSH
+- `RSYNC_DRYRUN` (bool/int): `1` to preview without sending data
+- `DIR_NAME` (logs subdir): e.g. `distill_go2` used by `sync_log_single.sh`
 
 ## Scripts behavior
 - `legged_gym/scripts/train.py`
@@ -70,3 +133,79 @@ If you see `PermissionError: [Errno 13] Permission denied: '/mnt/rpl_project/log
 ## Notes / Caveats
 - `go2_distill_config.py` may still reference module-level `logs_root` for teacher checkpoints (`teacher_ac_path`) and `load_run`. Adjust those paths (or environment) to ensure they resolve to the intended location.
 - If you need the same `LEGGED_GYM_LOGS_ROOT`/`LEGGED_GYM_DATA_ROOT` overrides across all tasks, they can be added consistently later.
+
+## Use cases
+
+### 1) Minimal A↔C loop (Local on A, remap on C)
+- Train on A (local paths):
+  ```bash
+  # On A
+  unset LEGGED_GYM_USE_SHARED_PATH
+  python3 legged_gym/legged_gym/scripts/train.py --task go2_distill --headless
+  # After some steps, note the run dir name printed in logs (e.g., Jul20_16-15-23_...)
+  ```
+- Push logs to C:
+  ```bash
+  # On A
+  export LOCAL_DIR="$(pwd)/legged_gym/logs/"
+  export REMOTE_DIR="user@server:/abs/path/on_C/logs/"
+  export DIR_NAME="distill_go2"   # or field_go2, depending on your run
+  ./network_test/sync_log_single.sh
+  ```
+- Collect on C with path remap:
+  ```bash
+  # On C
+  export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"
+  export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
+  # Optionally set explicit roots on C
+  # export LEGGED_GYM_LOGS_ROOT=/cs/.../network_test/logs
+  # export LEGGED_GYM_DATA_ROOT=/cs/.../network_test/data
+
+  python3 legged_gym/legged_gym/scripts/collect.py \
+    --task go2_distill \
+    --load_run <run_dir_from_A> \
+    --log
+  ```
+- Pull collected data back to A:
+  ```bash
+  # On A
+  export REMOTE_DIR="user@server:/abs/path/on_C/data/"
+  export LOCAL_DIR="$(pwd)/legged_gym/data/"
+  ./network_test/sync_data_single.sh
+  ```
+
+### 2) Shared/NFS on both nodes (no remap)
+- Configure both nodes to the same NFS root and ensure write permission:
+  ```bash
+  export LEGGED_GYM_USE_SHARED_PATH=1
+  export LEGGED_GYM_NFS_PATH=/mnt/rpl_project/$USER  # or another writable NFS subdir
+  ```
+- Train on A (writes to $NFS/logs and $NFS/data):
+  ```bash
+  python3 legged_gym/legged_gym/scripts/train.py --task go2_distill --headless
+  ```
+- Collect on C (reads same logs, writes to same data):
+  ```bash
+  python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <run_dir> --log
+  ```
+  No remap needed; network sync scripts optional.
+
+### 3) Explicit root overrides (quick hotfix per-node)
+```bash
+export LEGGED_GYM_LOGS_ROOT=/abs/custom/logs
+export LEGGED_GYM_DATA_ROOT=/abs/custom/data
+python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <run_dir>
+```
+Works even if shared_path is off; takes highest priority.
+
+### 4) Using the alternative collector (collect_test.py)
+- 如果希望与历史 Node C 的“路径重映射”方案完全隔离，可使用：
+  ```bash
+  python3 legged_gym/legged_gym/scripts/collect_test.py \
+    --task go2_distill \
+    --load_run <run_dir> \
+    --remap-old /mnt/rpl_project \
+    --remap-new /cs/student/projects2/rai/2024/hongboli/network_test \
+    --log
+  ```
+- 功能与 collect.py 中的 remap 开关等价；长期建议直接使用 collect.py。
