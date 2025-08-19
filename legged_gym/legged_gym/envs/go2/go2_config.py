@@ -17,25 +17,28 @@ go2_const_dof_range = dict(
     Calf_min= -2.7227,
 )
 
+# 模块级别的路径配置，供所有类使用
+_shared_path_enabled = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
+_shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+# 模块级别的 logs_root 和 data_root
+logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
+    os.path.join(_shared_root, "logs") if _shared_path_enabled else os.path.join(_repo_root, "logs")
+)
+data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
+    os.path.join(_shared_root, "data") if _shared_path_enabled else os.path.join(_repo_root, "data")
+)
+
 class Go2RoughCfg( LeggedRobotCfg ):
 
     class custom:
         name = "go2_rough"
-        shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
-
-        # 统一的共享根变量（新：LEGGED_GYM_SHARED_PATH；旧：LEGGED_GYM_NFS_PATH 兼容）
-        _shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
-
-        # 本地仓库根
-        _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-        # 允许显式覆盖（最高优先级）
-        logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
-            os.path.join(_shared_root, "logs") if shared_path else os.path.join(_repo_root, "logs")
-        )
-        data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
-            os.path.join(_shared_root, "data") if shared_path else os.path.join(_repo_root, "data")
-        )
+        shared_path = _shared_path_enabled
+        
+        # 使用模块级别定义的路径
+        logs_root = logs_root
+        data_root = data_root
         
     class env:
         num_envs = 4096

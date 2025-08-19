@@ -3,10 +3,10 @@ import numpy as np
 from os import path as osp
 from collections import OrderedDict
 
-from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO
+from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO, logs_root
 
-# 让本模块使用与 Go2 一致的日志根（已由 shared_path/NFS 控制）
-logs_root = Go2RoughCfg.custom.logs_root
+# 使用来自 go2_config 的模块级别 logs_root
+# logs_root = logs_root (已从 go2_config 导入)
 
 class Go2FieldCfg( Go2RoughCfg ):
     class custom( Go2RoughCfg.custom ):

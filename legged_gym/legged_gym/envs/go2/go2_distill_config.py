@@ -8,33 +8,34 @@ from datetime import datetime
 from legged_gym.utils.helpers import merge_dict
 from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go2RoughCfgPPO
 
+# from legged_gym.envs.go2.go2_config import logs_root, data_root, _shared_path_enabled
+
 multi_process_ = True
-logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-data_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "data")
-# shared_path = "/mnt/rpl_project"            #${SHARED_PATH}  # Change this to your shared path if needed
-# logs_root = osp.join(shared_path, "logs")  # shared path for NFS
-# data_root = osp.join(shared_path, "data")  # shared path for NFS
-# logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
+
+# 模块级别的路径配置，供所有类使用
+_shared_path_enabled = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
+_shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+# 模块级别的 logs_root 和 data_root
+logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
+    os.path.join(_shared_root, "logs") if _shared_path_enabled else os.path.join(_repo_root, "logs")
+)
+data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
+    os.path.join(_shared_root, "data") if _shared_path_enabled else os.path.join(_repo_root, "data")
+)
+
 
 class Go2DistillCfg( Go2FieldCfg ):
     class custom( Go2FieldCfg.custom ):
         name = "distill_go2"
 
         # 是否启用共享路径
-        shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
+        shared_path = _shared_path_enabled
 
-        # 统一共享根（新名优先，兼容旧名）
-        # share path: /mnt/rpl_project or /home/data/datasets/robot_parkour_learning
-        _shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
-        _repo_root = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
-
-        # 显式覆盖最高优先级
-        logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
-            osp.join(_shared_root, "logs") if shared_path else osp.join(_repo_root, "logs")
-        )
-        data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
-            osp.join(_shared_root, "data") if shared_path else osp.join(_repo_root, "data")
-        )
+        # 使用模块级别定义的路径
+        logs_root = logs_root
+        data_root = data_root
 
     class env( Go2FieldCfg.env ):
         num_envs = 256 

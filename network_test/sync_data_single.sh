@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 # ==== 用户自定义部分（可被环境变量覆盖）====
 
 # 兼容你在 MD 里用的变量名（可指向 data 根，或直接指到具体目录）
@@ -17,7 +22,7 @@ if [[ -n "${REMOTE_DIR:-}" ]]; then
 elif [[ -n "$REMOTE_DATA_DIR" ]]; then
   REMOTE_DIR_DEFAULT="${REMOTE_DATA_DIR%/}/"
 else
-  echo "[ERROR] Remote data directory is not set"
+  echo -e "${RED}[ERROR] Remote data directory is not set${NC}"
   exit 1
 fi
 
@@ -28,7 +33,7 @@ elif [[ -n "$LOCAL_DATA_DIR" ]]; then
   LOCAL_DIR_DEFAULT="${LOCAL_DATA_DIR%/}/"
 else
   # raise error
-  echo "[ERROR] Local data directory is not set"
+  echo -e "${RED}[ERROR] Local data directory is not set${NC}"
   exit 1
 fi
 
@@ -37,7 +42,7 @@ RSYNC_DRYRUN="${RSYNC_DRYRUN:-}"
 
 # ==== 不建议修改的部分 ====
 
-echo "[$(date)] 开始同步数据..."
+echo -e "${BLUE}[$(date)] Start Syncing Data...${NC}"
 echo "[DEBUG] REMOTE_DIR=${REMOTE_DIR_DEFAULT}"
 echo "[DEBUG] LOCAL_DIR=${LOCAL_DIR_DEFAULT}"
 
@@ -54,20 +59,22 @@ fi
 # 确保本地目标存在
 mkdir -p "$LOCAL_DIR_DEFAULT"
 
-rsync -avP --stats --info=progress2 $DRYRUN_OPT \
+echo -e "${BLUE}[SYNC] Pulling data from C → A...${NC}"
+rsync -av --stats $DRYRUN_OPT \
   --inplace --whole-file --no-compress --timeout=60 \
   --include="*/" --include="*.pkl" --exclude="*.tmp" --include="*" \
   -e "$SSH_OPT" \
-  "${REMOTE_DIR_DEFAULT}" "$LOCAL_DIR_DEFAULT" 
-  #>> "$LOG_FILE" 2>&1
+  "${REMOTE_DIR_DEFAULT}" "$LOCAL_DIR_DEFAULT" | \
+  grep -E "(Number of files|Number of regular files transferred|Total file size|sent.*received|speedup)" || true
 
 
 if [[ $? -eq 0 ]]; then
-  echo "[$(date)] 同步完成"
+  echo -e "${GREEN}[$(date)] ✅ Data Sync Completed${NC}"
 else
-  echo "[$(date)] 同步失败"
+  echo -e "${RED}[$(date)] ❌ Data Sync Failed${NC}"
   exit 1
 fi
+
 
 # rsync -avz --inplace --whole-file --no-compress --timeout=60 \
 #   --include="*/" --include="*.pkl" --exclude="*.tmp" --include="*" \

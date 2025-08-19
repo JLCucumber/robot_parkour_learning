@@ -26,13 +26,16 @@ python legged_gym/scripts/train.py --task go2_distill --headless
 # export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/logs"
 # export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/data"
 # echo a lot of things to test:
-echo $LOCAL_LOG_DIR  $LOCAL_DATA_DIR  $REMOTE_LOG_DIR  $REMOTE_DATA_DIR
+echo $DIR_NAME $LOCAL_LOG_DIR  $LOCAL_DATA_DIR  $REMOTE_LOG_DIR  $REMOTE_DATA_DIR
+unset DIR_NAME LOCAL_LOG_DIR LOCAL_DATA_DIR REMOTE_LOG_DIR REMOTE_DATA_DIR
 
-unset LOCAL_LOG_DIR LOCAL_DATA_DIR REMOTE_LOG_DIR REMOTE_DATA_DIR
+export RSYNC_DRYRUN="1"
+unset RSYNC_DRYRUN
+echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-
+export DIR_NAME="Aug19_23-16-19_Go2_9skills_fromJul20_16-15-23"
 export LEGGED_GYM_SHARED_PATH=/home/data/datasets/robot_parkour_learning
 export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/"
 export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/distill_go2/"
