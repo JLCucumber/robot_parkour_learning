@@ -23,7 +23,7 @@ class Go2DistillCfg( Go2FieldCfg ):
         shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
         name = "distill_go2"
         # 可用环境变量覆盖 NFS 路径
-        NFS_path = os.getenv("LEGGED_GYM_NFS_PATH", "/mnt/rpl_project")  # used only when shared_path = True
+        NFS_path = os.getenv("LEGGED_GYM_NFS_PATH", "/mnt/rpl_project")  # /home/data/datasets/robot_parkour_learning
         path = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
         # Use shared NFS when shared_path=True, otherwise use local repo path
         if shared_path:

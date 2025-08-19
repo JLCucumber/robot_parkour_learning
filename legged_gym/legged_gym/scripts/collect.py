@@ -23,12 +23,65 @@ from legged_gym.debugger import break_into_debugger
 
 from rsl_rl.modules import build_actor_critic
 from rsl_rl.runners.dagger_saver import DemonstrationSaver, DaggerSaver
+from typing import Optional
 # os.environ['MESA_VK_DEVICE_SELECT'] = '10de:24b0'
 # os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 # torch.cuda.set_device(1)
 
 
-# 路径来源统一：不再使用硬编码共享路径，改为依赖 env_cfg.custom.logs_root / data_root
+def _as_bool(v, default=False):
+    if v is None:
+        return default
+    return str(v).lower() in ("1", "true", "yes", "on")
+
+
+def deep_remap_paths(obj, old_root: str, new_root: str):
+    """递归替换任意字符串值中的路径前缀 old_root -> new_root。
+    支持 dict / list / tuple / str，其它类型原样返回。
+    """
+    if isinstance(obj, str):
+        return obj.replace(old_root, new_root)
+    if isinstance(obj, dict):
+        return {k: deep_remap_paths(v, old_root, new_root) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        mapped = [deep_remap_paths(v, old_root, new_root) for v in obj]
+        return type(obj)(mapped)
+    return obj
+
+
+def maybe_patch_summarywriter(remap_old: Optional[str], remap_new: Optional[str], enable: Optional[bool] = None):
+    """（可选）猴子补丁 tensorboardX SummaryWriter 以及 dagger_saver 内部引用。
+    说明：DaggerSaver 模块中是 `from tensorboardX import SummaryWriter`，因此仅替换
+    tensorboardX.SummaryWriter 不一定生效；这里也尝试替换 rsl_rl.runners.dagger_saver.SummaryWriter。
+    """
+    active = enable if enable is not None else bool(remap_old and remap_new)
+    if not active or not (remap_old and remap_new):
+        return
+    try:
+        from tensorboardX import SummaryWriter as OriginalSummaryWriter  # type: ignore
+        import tensorboardX  # type: ignore
+    except Exception:
+        return
+
+    class PatchedSummaryWriter(OriginalSummaryWriter):
+        def __init__(self, log_dir=None, *args, **kwargs):
+            if isinstance(log_dir, str) and log_dir.startswith(remap_old):
+                new_log_dir = log_dir.replace(remap_old, remap_new)
+                print(f"[MonkeyPatch] SummaryWriter log_dir remap:\n  from: {log_dir}\n    to: {new_log_dir}")
+                log_dir = new_log_dir
+            super().__init__(log_dir=log_dir, *args, **kwargs)
+
+    # 覆盖 tensorboardX 模块中的引用
+    try:
+        tensorboardX.SummaryWriter = PatchedSummaryWriter  # type: ignore
+    except Exception:
+        pass
+    # 覆盖 DaggerSaver 模块中的引用
+    try:
+        import rsl_rl.runners.dagger_saver as _ds  # type: ignore
+        _ds.SummaryWriter = PatchedSummaryWriter  # type: ignore
+    except Exception:
+        pass
 
 def main(args):
 
@@ -45,8 +98,21 @@ def main(args):
     custom = getattr(env_cfg, 'custom', None)
     logs_root = getattr(custom, 'logs_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs'))
     print(f"[DEBUG] [COLLECT] Using logs_root: {logs_root}")
-    training_policy_logdir = osp.join(logs_root, train_cfg.runner.experiment_name, args.load_run)
-    training_policy_log_cfg_path = os.path.join(logs_root, train_cfg.runner.experiment_name, args.load_run, "config.json")
+    # 可选：跨节点路径 remap（环境变量优先，其次 CLI）
+    remap_old_env = os.getenv("COLLECT_REMAP_OLD_BASE")
+    remap_new_env = os.getenv("COLLECT_REMAP_NEW_BASE")
+    remap_old = args.remap_old or remap_old_env
+    remap_new = args.remap_new or remap_new_env
+    summary_patch_env = os.getenv("COLLECT_SUMMARY_REMAP_ENABLE")
+    maybe_patch_summarywriter(remap_old, remap_new, enable=_as_bool(summary_patch_env, default=bool(remap_old and remap_new)))
+
+    training_policy_logdir = osp.join(logs_root, train_cfg.runner.experiment_name, args.load_run) if args.load_run else osp.join(logs_root, train_cfg.runner.experiment_name)
+    if args.load_run and remap_old and remap_new and training_policy_logdir.startswith(remap_old):
+        new_dir = training_policy_logdir.replace(remap_old, remap_new, 1)
+        print(f"[COLLECT] remap training_policy_logdir:\n  from: {training_policy_logdir}\n    to: {new_dir}")
+        training_policy_logdir = new_dir
+    # config path used only in DAgger branch
+    training_policy_log_cfg_path = osp.join(training_policy_logdir, "config.json") if args.load_run else None
 
     ### DEBUGGING
     print("[DEBUG] [COLLECT] Using task: {}".format(args.task))
@@ -54,12 +120,13 @@ def main(args):
     # args.load_run = "Jun27_14-58-44_Go2_10skills_fromMay26_20-05-28"
 
     if RunnerCls == DaggerSaver:
-
-        # Debugging
-        print("[DEBUG] [COLLECT] Loading config from: {}".format(training_policy_log_cfg_path))
-
-        with open(training_policy_log_cfg_path, "r") as f:
+        if not args.load_run:
+            raise ValueError("--load_run is required for DAgger collection")
+    print("[DEBUG] [COLLECT] Loading config from: {}".format(training_policy_log_cfg_path))
+    with open(training_policy_log_cfg_path, "r") as f:
             d = json.load(f, object_pairs_hook= OrderedDict)
+            if remap_old and remap_new:
+                d = deep_remap_paths(d, remap_old, remap_new)
             update_class_from_dict(env_cfg, d, strict= True)
             update_class_from_dict(train_cfg, d, strict= True)
     
@@ -92,12 +159,13 @@ def main(args):
 
     # load the teacher policy
     if config["algorithm"]["teacher_ac_path"] is not None:
-        print("teacher ac path: ", config["algorithm"]["teacher_ac_path"])
-
-        if "{LEGGED_GYM_ROOT_DIR}" in config["algorithm"]["teacher_ac_path"]:
-            config["algorithm"]["teacher_ac_path"] = config["algorithm"]["teacher_ac_path"].format(LEGGED_GYM_ROOT_DIR= LEGGED_GYM_ROOT_DIR)
-
-        state_dict = torch.load(config["algorithm"]["teacher_ac_path"], map_location= "cpu")
+        teacher_path = config["algorithm"]["teacher_ac_path"]
+        if "{LEGGED_GYM_ROOT_DIR}" in teacher_path:
+            teacher_path = teacher_path.format(LEGGED_GYM_ROOT_DIR= LEGGED_GYM_ROOT_DIR)
+        if remap_old and remap_new:
+            teacher_path = teacher_path.replace(remap_old, remap_new)
+        print("teacher ac path: ", teacher_path)
+        state_dict = torch.load(teacher_path, map_location= "cpu")
         teacher_actor_critic_state_dict = state_dict["model_state_dict"]
         policy.load_state_dict(teacher_actor_critic_state_dict)
 
@@ -168,6 +236,8 @@ if __name__ == "__main__":
             {"name": "--action_std", "type": float, "default": None, "help": "override the action sample std during rollout. None for using model's std"},
             {"name": "--log", "action": "store_true", "help": "log the data to tensorboard"},
             {"name": "--shared", "type": bool, "default": False, "help": "use shared path for NFS"},
+            {"name": "--remap-old", "type": str, "default": None, "help": "old base path to replace (e.g., /mnt/rpl_project)"},
+            {"name": "--remap-new", "type": str, "default": None, "help": "new base path (e.g., /cs/.../network_test)"},
         ],
     )
     main(args)
