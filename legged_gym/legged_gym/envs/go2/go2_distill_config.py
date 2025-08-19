@@ -1,4 +1,5 @@
 """ Config to train the whole parkour oracle policy """
+import os
 import numpy as np
 from os import path as osp
 from collections import OrderedDict
@@ -17,10 +18,21 @@ data_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath
 
 class Go2DistillCfg( Go2FieldCfg ):
     class custom( Go2FieldCfg.custom ):
-        shared_path = False
+        # 可用环境变量控制是否使用共享路径（NFS）
+        #   export LEGGED_GYM_USE_SHARED_PATH=1
+        shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
         name = "distill_go2"
-        logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
-        
+        # 可用环境变量覆盖 NFS 路径
+        NFS_path = os.getenv("LEGGED_GYM_NFS_PATH", "/mnt/rpl_project")  # used only when shared_path = True
+        path = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
+        # Use shared NFS when shared_path=True, otherwise use local repo path
+        if shared_path:
+            logs_root = osp.join(NFS_path, "logs")
+            data_root = osp.join(NFS_path, "data")
+        else:
+            logs_root = osp.join(path, "logs")
+            data_root = osp.join(path, "data")
+
     class env( Go2FieldCfg.env ):
         num_envs = 256 
         obs_components = [
