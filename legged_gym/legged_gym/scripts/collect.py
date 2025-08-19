@@ -28,7 +28,7 @@ from rsl_rl.runners.dagger_saver import DemonstrationSaver, DaggerSaver
 # torch.cuda.set_device(1)
 
 
-SHARED_PATH = "/cs/student/projects2/rai/2024/hongboli/network_test/"  # Change this to your shared path if needed
+# 路径来源统一：不再使用硬编码共享路径，改为依赖 env_cfg.custom.logs_root / data_root
 
 def main(args):
 
@@ -41,16 +41,12 @@ def main(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
 
 
-    print(f"[DEBUG] [COLLECT] Using shared path: {env_cfg.custom.shared_path}")
-    if env_cfg.custom.shared_path: 
-        # multi-node (currently only support UCL remote servers)
-        shared_path = SHARED_PATH
-        training_policy_logdir = osp.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run)
-        training_policy_log_cfg_path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
-    else:
-        # use local path
-        training_policy_logdir = osp.join("logs", train_cfg.runner.experiment_name, args.load_run)
-        training_policy_log_cfg_path = os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+    # 统一从配置读取根路径（Go2DistillCfg.custom 已根据 shared_path 开关选择本地或 NFS）
+    custom = getattr(env_cfg, 'custom', None)
+    logs_root = getattr(custom, 'logs_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs'))
+    print(f"[DEBUG] [COLLECT] Using logs_root: {logs_root}")
+    training_policy_logdir = osp.join(logs_root, train_cfg.runner.experiment_name, args.load_run)
+    training_policy_log_cfg_path = os.path.join(logs_root, train_cfg.runner.experiment_name, args.load_run, "config.json")
 
     ### DEBUGGING
     print("[DEBUG] [COLLECT] Using task: {}".format(args.task))
@@ -107,13 +103,14 @@ def main(args):
 
     # build runner
     track_header = "".join(env_cfg.terrain.BarrierTrack_kwargs["options"])
-    datadir = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))), "logs")
+    # 统一数据根目录（用于保存采集的数据）
+    data_root = getattr(custom, 'data_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data'))
 
     runner_kwargs = dict(
         env= env,
         policy= policy,
         save_dir= osp.join(
-            config["runner"]["pretrain_dataset"]["data_dir"] if RunnerCls == DaggerSaver else osp.join("/localdata_ssd/zzw/athletic-isaac_tmp", "{}_dagger".format(config["runner"]["experiment_name"])),
+            (data_root if RunnerCls == DaggerSaver else osp.join(data_root, f"{config['runner']['experiment_name']}_dagger")),
             datetime.now().strftime('%b%d_%H-%M-%S') + "_" + "".join([
                 track_header,
                 "_lowBorder" if env_cfg.terrain.BarrierTrack_kwargs["border_height"] < 0 else "",

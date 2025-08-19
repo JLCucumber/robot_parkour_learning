@@ -80,7 +80,11 @@ def create_recording_camera(gym, env_handle,
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     if args.load_cfg:
-        with open(os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json"), "r") as f:
+        # 统一从配置的 logs_root 读取配置（支持 shared_path/NFS）
+        custom = getattr(env_cfg, 'custom', None)
+        logs_root = getattr(custom, 'logs_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs'))
+        cfg_path = os.path.join(logs_root, train_cfg.runner.experiment_name, args.load_run, "config.json")
+        with open(cfg_path, "r") as f:
             d = json.load(f, object_pairs_hook= OrderedDict)
             update_class_from_dict(env_cfg, d, strict= True)
             update_class_from_dict(train_cfg, d, strict= True)
