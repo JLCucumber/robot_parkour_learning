@@ -8,6 +8,7 @@ from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO, logs_roo
 # 使用来自 go2_config 的模块级别 logs_root
 # logs_root = logs_root (已从 go2_config 导入)
 
+logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
 class Go2FieldCfg( Go2RoughCfg ):
     class custom( Go2RoughCfg.custom ):
         # 继承 Go2RoughCfg.custom 的共享路径设置；仅修改名称。
@@ -37,11 +38,14 @@ class Go2FieldCfg( Go2RoughCfg ):
             options= [
                 "jump",
                 "leap",
+                "leap",
                 "hurdle",
                 "down",
                 # "tilted_ramp",
+                # "tilted_ramp",
                 "stairsup",
                 "stairsdown",
+                "discrete_rect",
                 "discrete_rect",
                 "slope",
                 "wave",

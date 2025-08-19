@@ -35,7 +35,7 @@ echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-export DIR_NAME="Aug19_23-16-19_Go2_9skills_fromJul20_16-15-23"
+export DIR_NAME="Aug20_00-01-58_Go2_11skills_fromJul20_16-15-23"
 export LEGGED_GYM_SHARED_PATH=/home/data/datasets/robot_parkour_learning
 export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/"
 export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/distill_go2/"
