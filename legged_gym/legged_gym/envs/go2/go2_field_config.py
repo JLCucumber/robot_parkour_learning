@@ -99,19 +99,19 @@ class Go2FieldCfg( Go2RoughCfg ):
                 no_perlin_rate= 0.2,
                 length_curriculum= True,
             ),
-            # stairsup= dict(
-            #     height= [0.1, 0.3],
-            #     length= [0.3, 0.5],
-            #     residual_distance= 0.05,
-            #     num_steps= [3, 19],
-            #     num_steps_curriculum= True,
-            # ),
-            # stairsdown= dict(
-            #     height= [0.1, 0.3],
-            #     length= [0.3, 0.5],
-            #     num_steps= [3, 19],
-            #     num_steps_curriculum= True,
-            # ),
+            stairsup= dict(
+                height= [0.1, 0.3],
+                length= [0.3, 0.5],
+                residual_distance= 0.05,
+                num_steps= [3, 19],
+                num_steps_curriculum= True,
+            ),
+            stairsdown= dict(
+                height= [0.1, 0.3],
+                length= [0.3, 0.5],
+                num_steps= [3, 19],
+                num_steps_curriculum= True,
+            ),
             discrete_rect= dict(
                 max_height= [0.05, 0.2],
                 max_size= 0.6,
@@ -206,7 +206,7 @@ class Go2FieldCfgPPO( Go2RoughCfgPPO ):
 
         resume = True
         load_run = osp.join(logs_root, "rough_go2",
-            "May26_18-40-14_Go2Rough_pEnergy-2e-05_pDofErr-1e-02_pDofErrN-1e+00_pStand-2e+00_noResume",
+            "Jul20_00-58-51_Go2Rough_pEnergy-2e-05_pDofErr-1e-02_pDofErrN-1e+00_pStand-2e+00_noResume",
         )
 
         run_name = "".join(["Go2_",
@@ -232,7 +232,7 @@ class Go2FieldCfgPPO( Go2RoughCfgPPO ):
             ("_noResume" if not resume else "_from" + "_".join(load_run.split("/")[-1].split("_")[:2])),
         ]) # type: ignore
 
-        max_iterations = 38000
-        save_interval = 10000
+        max_iterations = 47000
+        save_interval = 5000
         log_interval = 100
         

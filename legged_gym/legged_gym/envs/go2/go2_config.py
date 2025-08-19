@@ -299,6 +299,6 @@ class Go2RoughCfgPPO( LeggedRobotCfgPPO ):
             ("_noResume" if not resume else "_from" + "_".join(load_run.split("/")[-1].split("_")[:2])),
         ])
 
-        max_iterations = 2000
-        save_interval = 2000
+        max_iterations = 3000
+        save_interval = 3000
         log_interval = 100

@@ -132,6 +132,7 @@ def main(args):
                 d = deep_remap_paths(d, remap_old, remap_new)
             update_class_from_dict(env_cfg, d, strict= True)
             update_class_from_dict(train_cfg, d, strict= True)
+            
     
     ####### customized option to increase data distribution #######
     env_cfg.env.num_envs = 6
