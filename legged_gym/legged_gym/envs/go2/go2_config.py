@@ -20,19 +20,22 @@ go2_const_dof_range = dict(
 class Go2RoughCfg( LeggedRobotCfg ):
 
     class custom:
-        # 使用环境变量控制共享路径开关与 NFS 根
-        #   export LEGGED_GYM_USE_SHARED_PATH=1
-        #   export LEGGED_GYM_NFS_PATH=/mnt/rpl_project
+        name = "go2_rough"
         shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
-        name = "rough_go2"
-        NFS_path = os.getenv("LEGGED_GYM_NFS_PATH", "/mnt/rpl_project")
-        path = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
-        if shared_path:
-            logs_root = osp.join(NFS_path, "logs")
-            data_root = osp.join(NFS_path, "data")
-        else:
-            logs_root = osp.join(path, "logs")
-            data_root = osp.join(path, "data")
+
+        # 统一的共享根变量（新：LEGGED_GYM_SHARED_PATH；旧：LEGGED_GYM_NFS_PATH 兼容）
+        _shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
+
+        # 本地仓库根
+        _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+        # 允许显式覆盖（最高优先级）
+        logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
+            os.path.join(_shared_root, "logs") if shared_path else os.path.join(_repo_root, "logs")
+        )
+        data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
+            os.path.join(_shared_root, "data") if shared_path else os.path.join(_repo_root, "data")
+        )
         
     class env:
         num_envs = 4096

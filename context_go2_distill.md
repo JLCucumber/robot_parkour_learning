@@ -6,20 +6,43 @@ This file summarizes the minimal context to run and debug `--task go2_distill` a
 
 ### A: Local training (no NFS)
 ```bash
-unset LEGGED_GYM_USE_SHARED_PATH
-python3 legged_gym/legged_gym/scripts/train.py --task go2_distill --headless
+echo $LEGGED_GYM_USE_SHARED_PATH
+echo $LEGGED_GYM_SHARED_PATH
+unset LEGGED_GYM_USE_SHARED_PATH LEGGED_GYM_SHARED_PATH
+
+# Option 1: multi-node training 
+export LEGGED_GYM_USE_SHARED_PATH=1
+export LEGGED_GYM_SHARED_PATH=/home/data/datasets/robot_parkour_learning # /mnt/rpl_project or /home/data/datasets/robot_parkour_learning
+python legged_gym/scripts/train.py --task go2_distill --headless
+
+# Option 2: local training (using in-project log dir)
+export LEGGED_GYM_USE_SHARED_PATH=0
+python legged_gym/scripts/train.py --task go2_distill --headless
 ```
 
 ### Push logs to C (run on A) && Pull data back to A
 ```bash
-export LOCAL_DIR="$(pwd)/legged_gym/logs/"
-export REMOTE_DIR="user@server:/abs/path/on_C/logs/"
-export DIR_NAME="distill_go2"
-export REMOTE_DIR="user@server:/abs/path/on_C/data/"
-export LOCAL_DIR="$(pwd)/legged_gym/data/"
-# ./network_test/sync_log_single.sh
-# ./network_test/sync_data_single.sh
-./network_test/sync_loop.sh
+
+# export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/logs"
+# export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/data"
+# echo a lot of things to test:
+echo $LOCAL_LOG_DIR  $LOCAL_DATA_DIR  $REMOTE_LOG_DIR  $REMOTE_DATA_DIR
+
+unset LOCAL_LOG_DIR LOCAL_DATA_DIR REMOTE_LOG_DIR REMOTE_DATA_DIR
+
+cd /home/data/projects/robot_parkour_learning/legged_gym
+
+
+export LEGGED_GYM_SHARED_PATH=/home/data/datasets/robot_parkour_learning
+export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/"
+export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/distill_go2/"
+export REMOTE_LOG_DIR="hongboli@ucl-beachcomber:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/"
+export REMOTE_DATA_DIR="hongboli@ucl-beachcomber:/cs/student/projects2/rai/2024/hongboli/network_test/data"
+
+cd /home/data/projects/robot_parkour_learning/network_test
+./sync_loop.sh
+./sync_log_single.sh
+./sync_data_single.sh
 ```
 
 
@@ -36,7 +59,7 @@ python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <
 ### Shared/NFS on both nodes (no remap)
 ```bash
 export LEGGED_GYM_USE_SHARED_PATH=1
-export LEGGED_GYM_NFS_PATH=/mnt/rpl_project/$USER
+export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project/$USER
 python3 legged_gym/legged_gym/scripts/train.py --task go2_distill --headless
 python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <run_dir> --log
 ```
@@ -64,14 +87,12 @@ python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <
 ## Environment variables (quick reference)
 
 Core path controls (training, collect, play):
-- `LEGGED_GYM_USE_SHARED_PATH` (bool): enable shared/NFS mode. Default: off.
-  - Examples: `export LEGGED_GYM_USE_SHARED_PATH=1` or `true`
-- `LEGGED_GYM_NFS_PATH` (path): NFS root when shared is on. Default: `/mnt/rpl_project`.
-  - Example: `export LEGGED_GYM_NFS_PATH=/mnt/rpl_project/$USER`
-- `LEGGED_GYM_LOGS_ROOT` (path): explicit logs root override (highest priority). Optional.
-  - Example: `export LEGGED_GYM_LOGS_ROOT=/abs/custom/logs`
-- `LEGGED_GYM_DATA_ROOT` (path): explicit data root override (highest priority). Optional.
-  - Example: `export LEGGED_GYM_DATA_ROOT=/abs/custom/data`
+- LEGGED_GYM_USE_SHARED_PATH (bool): enable shared/NFS mode. Default: off.
+- LEGGED_GYM_SHARED_PATH (path): Shared/NFS root when shared is on. Example: /mnt/rpl_project/$USER
+- LEGGED_GYM_LOGS_ROOT / LEGGED_GYM_DATA_ROOT: explicit overrides (highest priority).
+
+Compatibility:
+- LEGGED_GYM_NFS_PATH is deprecated but still accepted as a fallback if LEGGED_GYM_SHARED_PATH is unset.
 
 Collect cross-node remap (only if paths differ between nodes):
 - `COLLECT_REMAP_OLD_BASE` (path): old base prefix to replace, e.g. `/mnt/rpl_project`

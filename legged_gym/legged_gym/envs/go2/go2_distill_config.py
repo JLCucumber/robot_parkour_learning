@@ -18,20 +18,23 @@ data_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath
 
 class Go2DistillCfg( Go2FieldCfg ):
     class custom( Go2FieldCfg.custom ):
-        # 可用环境变量控制是否使用共享路径（NFS）
-        #   export LEGGED_GYM_USE_SHARED_PATH=1
-        shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
         name = "distill_go2"
-        # 可用环境变量覆盖 NFS 路径
-        NFS_path = os.getenv("LEGGED_GYM_NFS_PATH", "/mnt/rpl_project")  # /home/data/datasets/robot_parkour_learning
-        path = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
-        # Use shared NFS when shared_path=True, otherwise use local repo path
-        if shared_path:
-            logs_root = osp.join(NFS_path, "logs")
-            data_root = osp.join(NFS_path, "data")
-        else:
-            logs_root = osp.join(path, "logs")
-            data_root = osp.join(path, "data")
+
+        # 是否启用共享路径
+        shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
+
+        # 统一共享根（新名优先，兼容旧名）
+        # share path: /mnt/rpl_project or /home/data/datasets/robot_parkour_learning
+        _shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
+        _repo_root = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
+
+        # 显式覆盖最高优先级
+        logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
+            osp.join(_shared_root, "logs") if shared_path else osp.join(_repo_root, "logs")
+        )
+        data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
+            osp.join(_shared_root, "data") if shared_path else osp.join(_repo_root, "data")
+        )
 
     class env( Go2FieldCfg.env ):
         num_envs = 256 

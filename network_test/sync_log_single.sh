@@ -1,66 +1,77 @@
-#!/bin/bash
-
-##########################################
-# UCL Sync Script via ProxyJump (template)
-# Pull data from trailbreaker.cs.ucl.ac.uk
-# through knuckles.cs.ucl.ac.uk via SSH
-#
-# Fill in the source and destination below
-##########################################
+#!/usr/bin/env bash
+set -euo pipefail
 
 # ==== 用户自定义部分（可被环境变量覆盖）====
 
-DIR_NAME=${DIR_NAME:-"Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28/"}
+# 期望的日志 run 目录名（例如：Aug19_21-47-53_Go2_...）。若未设置，则允许直接用 *_LOG_DIR/REMOTE_DIR。
+DIR_NAME="Aug19_22-11-00_Go2_9skills_fromJul20_16-15-23"
 
-# 远端（通常是 C 端）日志目录
-REMOTE_DIR=${REMOTE_DIR:-"hongboli@beachcomber.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/${DIR_NAME}"}
+# 兼容你在 MD 里用的变量名（可指向 logs 根，或直接指到具体 run 目录）
+LOCAL_LOG_DIR="${LOCAL_LOG_DIR:-}"
+REMOTE_LOG_DIR="${REMOTE_LOG_DIR:-}"
 
-# 本机（通常是 A 端）日志目录
-LOCAL_DIR=${LOCAL_DIR:-"/mnt/rpl_project/logs/distill_go2/${DIR_NAME}"}
+# 仍保持对 LOCAL_DIR/REMOTE_DIR 的支持（若已显式给出则优先）
+LOCAL_DIR_DEFAULT=""
+REMOTE_DIR_DEFAULT=""
 
-# 日志文件路径（可选）
-# LOG_FILE="${HOME}/sync_trailbreaker.log"
+# 本机（A）日志目录计算
+if [[ -n "${LOCAL_DIR:-}" ]]; then
+  LOCAL_DIR_DEFAULT="$LOCAL_DIR"
+elif [[ -n "$LOCAL_LOG_DIR" && -n "$DIR_NAME" ]]; then
+  LOCAL_DIR_DEFAULT="${LOCAL_LOG_DIR%/}/$DIR_NAME/"
+elif [[ -n "$LOCAL_LOG_DIR" ]]; then
+  LOCAL_DIR_DEFAULT="${LOCAL_LOG_DIR%/}/"
+else
+  # 最后兜底（不推荐，便于保留旧行为）
+  LOCAL_DIR_DEFAULT="/mnt/rpl_project/logs/distill_go2/${DIR_NAME}/"
+fi
 
-# 跳板设置（留空表示直连）
-PROXY_JUMP=${PROXY_JUMP:-"hongboli@knuckles.cs.ucl.ac.uk"}
+# 远端（C）日志目录计算
+if [[ -n "${REMOTE_DIR:-}" ]]; then
+  REMOTE_DIR_DEFAULT="$REMOTE_DIR"
+elif [[ -n "$REMOTE_LOG_DIR" && -n "$DIR_NAME" ]]; then
+  REMOTE_DIR_DEFAULT="${REMOTE_LOG_DIR%/}/$DIR_NAME/"
+elif [[ -n "$REMOTE_LOG_DIR" ]]; then
+  REMOTE_DIR_DEFAULT="${REMOTE_LOG_DIR%/}/"
+else
+  REMOTE_DIR_DEFAULT="hongboli@beachcomber.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/${DIR_NAME}/"
+fi
 
-# Dry-run 开关（非空启用）例如： export RSYNC_DRYRUN=1
-RSYNC_DRYRUN=${RSYNC_DRYRUN:-""}
+# 跳板（留空表示使用 ~/.ssh/config 自动跳板）
+PROXY_JUMP="${PROXY_JUMP:-}"
+
+# Dry-run 开关（非空启用）
+RSYNC_DRYRUN="${RSYNC_DRYRUN:-}"
 
 # ==== 不建议修改的部分 ====
 
-# check if remote directory exists, if not, create it
+echo "[$(date)] 开始同步日志..."
+echo "[DEBUG] LOCAL_DIR=${LOCAL_DIR_DEFAULT}"
+echo "[DEBUG] REMOTE_DIR=${REMOTE_DIR_DEFAULT}"
 
-echo "[$(date)] 开始同步..." #>> "$LOG_FILE"
-
-# 执行同步
 SSH_OPT="ssh"
-if [ -n "$PROXY_JUMP" ]; then
+if [[ -n "$PROXY_JUMP" ]]; then
   SSH_OPT="ssh -J $PROXY_JUMP"
 fi
 
 DRYRUN_OPT=""
-if [ -n "$RSYNC_DRYRUN" ]; then
+if [[ -n "$RSYNC_DRYRUN" ]]; then
   DRYRUN_OPT="--dry-run"
 fi
 
-rsync -avz --inplace --whole-file --no-compress --timeout=30 $DRYRUN_OPT \
-  --include="*/" --include="*" \
-  -e "$SSH_OPT" \
-  "$LOCAL_DIR" "${REMOTE_DIR}"  \
-  #>> "$LOG_FILE" 2>&1
-
-
-# 同步结果
-if [ $? -eq 0 ]; then
-    echo "[$(date)] 同步成功" #>> "$LOG_FILE"
-else
-    echo "[$(date)] 同步失败" #>> "$LOG_FILE"
+# 校验本地源目录是否存在
+if [[ ! -d "$LOCAL_DIR_DEFAULT" ]]; then
+  echo "[ERROR] 本地日志目录不存在: $LOCAL_DIR_DEFAULT"
+  echo "        请确认 DIR_NAME（应为具体 run 目录名）或 LOCAL_LOG_DIR/LOCAL_DIR 设置是否正确。"
+  exit 1
 fi
 
-# rsync -avz --inplace --whole-file --no-compress --timeout=60 \
-#   --include="*/" --include="*.pkl" --exclude="*.tmp" --include="*" \
-#   -e "ssh -J hongboli@knuckles.cs.ucl.ac.uk" \
-#   hongboli@trailbreaker.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/data/Jul13_03-56-49_jumphurdledowntilted_rampstairsupstairsdownslopewave_blockLength2.4_teacherProb0.0_randOrder_fric0.0-2.0_aStd0.10_Jul12_00-34-50 \
-#   /mnt/rpl_project/data/Jul13_03-56-49_jumphurdledowntilted_rampstairsupstairsdownslopewave_blockLength2.4_teacherProb0.0_randOrder_fric0.0-2.0_aStd0.10_Jul12_00-34-50
-#   >> "$LOG_FILE" 2>&1
+# 推送日志（本机 A -> 远端 C）
+rsync -avP $DRYRUN_OPT -e "$SSH_OPT" "${LOCAL_DIR_DEFAULT%/}/" "$REMOTE_DIR_DEFAULT"
+
+if [[ $? -eq 0 ]]; then
+  echo "[$(date)] 同步完成"
+else
+  echo "[$(date)] 同步失败"
+  exit 1
+fi

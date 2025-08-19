@@ -61,17 +61,21 @@ def train(args):
 
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
 
-    
+    # print current logs_root
+    if hasattr(env_cfg, 'custom'):
+        print(f"[DEBUG] - [TRAIN] Using custom logs_root: {env_cfg.custom.logs_root}")
+
+
     # if has attribute custom in env_cfg, use it to set the log root
     if hasattr(env_cfg, 'custom') and env_cfg.custom.shared_path == True:
-        print(f"[DEBUG] [TRAIN] Using custom shared path: {env_cfg.custom.shared_path}")
+        print(f"[DEBUG] - [TRAIN] Using custom shared path: {env_cfg.custom.shared_path}")
         shared_log_root = os.path.join(env_cfg.custom.logs_root, env_cfg.custom.name) # type: ignore
         ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg, log_root=shared_log_root)
 
     else:
         ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, env_cfg=env_cfg)
 
-    
+
     ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
 
 if __name__ == '__main__':
