@@ -17,7 +17,8 @@ if [[ -n "${REMOTE_DIR:-}" ]]; then
 elif [[ -n "$REMOTE_DATA_DIR" ]]; then
   REMOTE_DIR_DEFAULT="${REMOTE_DATA_DIR%/}/"
 else
-  REMOTE_DIR_DEFAULT="hongboli@trailbreaker.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/data/"
+  echo "[ERROR] Remote data directory is not set"
+  exit 1
 fi
 
 # 本机（A）保存路径作为目标
@@ -26,7 +27,9 @@ if [[ -n "${LOCAL_DIR:-}" ]]; then
 elif [[ -n "$LOCAL_DATA_DIR" ]]; then
   LOCAL_DIR_DEFAULT="${LOCAL_DATA_DIR%/}/"
 else
-  LOCAL_DIR_DEFAULT="/mnt/rpl_project/data/"
+  # raise error
+  echo "[ERROR] Local data directory is not set"
+  exit 1
 fi
 
 PROXY_JUMP="${PROXY_JUMP:-}"
@@ -55,7 +58,7 @@ rsync -avP --stats --info=progress2 $DRYRUN_OPT \
   --inplace --whole-file --no-compress --timeout=60 \
   --include="*/" --include="*.pkl" --exclude="*.tmp" --include="*" \
   -e "$SSH_OPT" \
-  "${REMOTE_DIR}" "$LOCAL_DIR" \
+  "${REMOTE_DIR_DEFAULT}" "$LOCAL_DIR_DEFAULT" 
   #>> "$LOG_FILE" 2>&1
 
 

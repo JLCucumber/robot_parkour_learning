@@ -22,8 +22,9 @@ elif [[ -n "$LOCAL_LOG_DIR" && -n "$DIR_NAME" ]]; then
 elif [[ -n "$LOCAL_LOG_DIR" ]]; then
   LOCAL_DIR_DEFAULT="${LOCAL_LOG_DIR%/}/"
 else
-  # 最后兜底（不推荐，便于保留旧行为）
-  LOCAL_DIR_DEFAULT="/mnt/rpl_project/logs/distill_go2/${DIR_NAME}/"
+  # raise error
+  echo "[ERROR] Local log directory is not set"
+  exit 1
 fi
 
 # 远端（C）日志目录计算
@@ -34,7 +35,8 @@ elif [[ -n "$REMOTE_LOG_DIR" && -n "$DIR_NAME" ]]; then
 elif [[ -n "$REMOTE_LOG_DIR" ]]; then
   REMOTE_DIR_DEFAULT="${REMOTE_LOG_DIR%/}/"
 else
-  REMOTE_DIR_DEFAULT="hongboli@beachcomber.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/${DIR_NAME}/"
+  echo "[ERROR] Remote log directory is not set"
+  exit 1
 fi
 
 # 跳板（留空表示使用 ~/.ssh/config 自动跳板）
