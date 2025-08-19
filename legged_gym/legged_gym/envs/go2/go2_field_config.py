@@ -5,12 +5,13 @@ from collections import OrderedDict
 
 from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO
 
-logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+# 让本模块使用与 Go2 一致的日志根（已由 shared_path/NFS 控制）
+logs_root = Go2RoughCfg.custom.logs_root
+
 class Go2FieldCfg( Go2RoughCfg ):
     class custom( Go2RoughCfg.custom ):
-        shared_path = False
-        name="field_go2"
-        logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
+        # 继承 Go2RoughCfg.custom 的共享路径设置；仅修改名称。
+        name = "field_go2"
 
 
     class init_state( Go2RoughCfg.init_state ):

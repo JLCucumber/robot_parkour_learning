@@ -1,4 +1,5 @@
 """ Basic model configs for Unitree Go2 """
+import os
 import numpy as np
 import os.path as osp
 
@@ -19,9 +20,19 @@ go2_const_dof_range = dict(
 class Go2RoughCfg( LeggedRobotCfg ):
 
     class custom:
-        shared_path = True
+        # 使用环境变量控制共享路径开关与 NFS 根
+        #   export LEGGED_GYM_USE_SHARED_PATH=1
+        #   export LEGGED_GYM_NFS_PATH=/mnt/rpl_project
+        shared_path = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
         name = "rough_go2"
-        logs_root = osp.join("/mnt/rpl_project", "logs")
+        NFS_path = os.getenv("LEGGED_GYM_NFS_PATH", "/mnt/rpl_project")
+        path = osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))))
+        if shared_path:
+            logs_root = osp.join(NFS_path, "logs")
+            data_root = osp.join(NFS_path, "data")
+        else:
+            logs_root = osp.join(path, "logs")
+            data_root = osp.join(path, "data")
         
     class env:
         num_envs = 4096
@@ -229,8 +240,8 @@ class Go2RoughCfg( LeggedRobotCfg ):
             ),
         }
 
-# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
+# 供下方 PPO 配置引用的日志根目录，遵循上面的 custom 配置
+logs_root = Go2RoughCfg.custom.logs_root
 class Go2RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
