@@ -12,7 +12,7 @@
 ### 计划实现的功能
 
 1. **难度分数计算 (Collect 端扩展)**
-   ```pytho---
+   
 
 ## Git Commit 总结
 
@@ -95,13 +95,12 @@
    - 支持 'percentile' 和 'softmax' 两种权重计算方法
 
 4. **数据流完整验证**
-   ```
+   
    DaggerSaver.get_transition() [7个返回值]
    → DemonstrationSaver.wrap_up_trajectory() [GAE计算]
    → RolloutDataset._refresh_traj_data() [加载优势数据]
    → ActionLabelRollout [存储和批次处理]
    → TPPO.compute_losses() [应用权重]
-   ```
 
 ### 关键特性
 
@@ -197,6 +196,25 @@
 * **未见地形**：更窄的梁、更小石台等，检验泛化。
 * **消融矩阵**：Baseline → +预训练 → +辅助重建 → +AW-BC → +回放/过采样（Full）。
 * **结构对比（可选）**：\*\*“CNN 局部特征 + 点级注意”\*\*优于“纯 ViT/下采样 CNN/大 Transformer”（对应 D.3 讨论）。
+
+## 如何验证 AW-BC 是否在工作（快速清单）
+
+- 采集端检查：轨迹文件包含以下字段
+   - `values`（教师 value），`advantages`，`positive_advantages`
+   - 用工具脚本快速统计分布：
+      - 运行：python rsl_rl/tools/inspect_advantage_weights.py <data_dir> --limit 50
+      - 期望：`positive_advantages` p95 合理（>0），Derived Weights 均值 0.2~0.6，`w>0.7` 有一定占比（>5%）。
+- 训练端日志：
+   - 在 TPPO 中记录：`Distill/weight_mean`、`weight_p90/p95`、`high_weight_frac`（>0.7）。
+   - 对比无权重版本，`高权重分桶`的 L1 应更快下降。
+- 学习曲线：
+   - 相同步数下成功率更快上升；或蒸馏 L1 更快下降且更稳。
+   - 难题子集（梅花桩/坑缘/高速近距）指标改善。
+
+若上述检查失败：
+- 采集端没有 `advantages` 字段 → 补齐 DemonstrationSaver.wrap_up_trajectory 写入。
+- 权重过小或极端稀疏 → 改用批内 P90（而非 P95）归一，或上限截断 0.7。
+- 曲线发抖 → 小 KL=0.02 稳定或减小权重上限。
 
 ---
 

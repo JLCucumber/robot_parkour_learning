@@ -39,7 +39,7 @@ from .all_mixer import EncoderStateAc, EncoderStateAcRecurrent
 
 def build_actor_critic(env, policy_class_name, policy_cfg):
     """ NOTE: This method allows to hack the policy kwargs by adding the env attributes to the policy_cfg. """
-    actor_critic_class = globals()[policy_class_name] # ActorCritic
+    actor_critic_class = globals()[policy_class_name]   # ActorCritic
 
     policy_cfg = policy_cfg.copy()
     if env.num_privileged_obs is not None:
@@ -58,5 +58,9 @@ def build_actor_critic(env, policy_class_name, policy_cfg):
         policy_cfg["num_actions"] = env.num_actions
     
     actor_critic: ActorCritic = actor_critic_class(**policy_cfg)
+
+    # Debuggings: actor_critic_class name, policy network
+    print(f"[DEBUG] [Policy Modules] class name: {actor_critic_class.__name__}")
+    print(f"[DEBUG] [Policy Modules] Policy: {actor_critic}")
 
     return actor_critic

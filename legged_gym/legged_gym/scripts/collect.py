@@ -27,50 +27,56 @@ from rsl_rl.runners.dagger_saver import DemonstrationSaver, DaggerSaver
 # os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 # torch.cuda.set_device(1)
 
+
 SHARED_PATH = "/cs/student/projects2/rai/2024/hongboli/network_test/"  # Change this to your shared path if needed
 
 def main(args):
 
-    print("sim device:", args.sim_device)
-    print("rl device:", args.rl_device)
-    print("graphics device id", args.graphics_device_id)
+    # print("sim device:", args.sim_device)
+    # print("rl device:", args.rl_device)
+    # print("graphics device id", args.graphics_device_id)
 
     RunnerCls = DaggerSaver if args.load_run else DemonstrationSaver
     success_traj_only = False
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
 
+
+    print(f"[DEBUG] [COLLECT] Using shared path: {env_cfg.custom.shared_path}")
+    if env_cfg.custom.shared_path: 
+        # multi-node (currently only support UCL remote servers)
+        shared_path = SHARED_PATH
+        training_policy_logdir = osp.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run)
+        training_policy_log_cfg_path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+    else:
+        # use local path
+        training_policy_logdir = osp.join("logs", train_cfg.runner.experiment_name, args.load_run)
+        training_policy_log_cfg_path = os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+
     ### DEBUGGING
-    print("Using task: {}".format(args.task))
+    print("[DEBUG] [COLLECT] Using task: {}".format(args.task))
     # args.log = True
     # args.load_run = "Jun27_14-58-44_Go2_10skills_fromMay26_20-05-28"
 
     if RunnerCls == DaggerSaver:
 
-        # under NFS only
-        # shared_path = "/mnt/rpl_project/"
-        shared_path = SHARED_PATH
-        path = os.path.join(shared_path, "logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
-        
         # Debugging
-        print("Loading config from: {}".format(path))
+        print("[DEBUG] [COLLECT] Loading config from: {}".format(training_policy_log_cfg_path))
 
-        # default path
-        # path = os.path.join("logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
-
-        with open(path, "r") as f:
+        with open(training_policy_log_cfg_path, "r") as f:
             d = json.load(f, object_pairs_hook= OrderedDict)
             update_class_from_dict(env_cfg, d, strict= True)
             update_class_from_dict(train_cfg, d, strict= True)
     
     ####### customized option to increase data distribution #######
-    # env_cfg.env.num_envs = 6
+    env_cfg.env.num_envs = 6
     # env_cfg.terrain.curriculum = True
     # env_cfg.terrain.max_init_terrain_level = 0
     # env_cfg.terrain.border_size = 1.
     ############# some predefined options #############
-    env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 30
 
-    print("number of envs:", env_cfg.env.num_envs)
+    env_cfg.terrain.num_rows = 2 ; env_cfg.terrain.num_cols = 4
+
+    print("[DEBUG] [COLLECT] Number of Envs: {}".format(env_cfg.env.num_envs))
     # Done custom settings
 
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -88,12 +94,13 @@ def main(args):
         config["algorithm"]["teacher_policy"],
     ).to(env.device)
 
-    # load the policy is possible
+    # load the teacher policy
     if config["algorithm"]["teacher_ac_path"] is not None:
         print("teacher ac path: ", config["algorithm"]["teacher_ac_path"])
 
         if "{LEGGED_GYM_ROOT_DIR}" in config["algorithm"]["teacher_ac_path"]:
             config["algorithm"]["teacher_ac_path"] = config["algorithm"]["teacher_ac_path"].format(LEGGED_GYM_ROOT_DIR= LEGGED_GYM_ROOT_DIR)
+
         state_dict = torch.load(config["algorithm"]["teacher_ac_path"], map_location= "cpu")
         teacher_actor_critic_state_dict = state_dict["model_state_dict"]
         policy.load_state_dict(teacher_actor_critic_state_dict)
@@ -101,6 +108,7 @@ def main(args):
     # build runner
     track_header = "".join(env_cfg.terrain.BarrierTrack_kwargs["options"])
     datadir = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))), "logs")
+
     runner_kwargs = dict(
         env= env,
         policy= policy,
@@ -140,12 +148,14 @@ def main(args):
     )
     if RunnerCls == DaggerSaver:
         # kwargs for dagger saver
+        # a bunch of debugs: "DAGGER_SAVER", training_policy_logdir, teacher_act_prob, action_sample_std
+        print(f"[DEBUG] [DAGGER_SAVER] Using training policy logdir: {training_policy_logdir}")
+        print(f"[DEBUG] [DAGGER_SAVER] Using teacher action probability: {teacher_act_prob}")
+        print(f"[DEBUG] [DAGGER_SAVER] Using update times scale: {config['algorithm'].get('update_times_scale', 1e5)}")
+        print(f"[DEBUG] [DAGGER_SAVER] Using action sample std: {action_std}")
+
         runner_kwargs.update(dict(
-            training_policy_logdir= osp.join(
-                "logs",
-                config["runner"]["experiment_name"],
-                args.load_run,
-            ),            
+            training_policy_logdir= training_policy_logdir,    
             teacher_act_prob= teacher_act_prob,
             update_times_scale= config["algorithm"].get("update_times_scale", 1e5),
             action_sample_std= action_std,
@@ -160,6 +170,7 @@ if __name__ == "__main__":
             {"name": "--teacher_prob", "type": float, "default": None, "help": "probability of using teacher's action"},
             {"name": "--action_std", "type": float, "default": None, "help": "override the action sample std during rollout. None for using model's std"},
             {"name": "--log", "action": "store_true", "help": "log the data to tensorboard"},
+            {"name": "--shared", "type": bool, "default": False, "help": "use shared path for NFS"},
         ],
     )
     main(args)

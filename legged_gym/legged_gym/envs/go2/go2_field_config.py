@@ -10,7 +10,7 @@ class Go2FieldCfg( Go2RoughCfg ):
     class custom( Go2RoughCfg.custom ):
         shared_path = False
         name="field_go2"
-        # logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
+        logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
 
 
     class init_state( Go2RoughCfg.init_state ):

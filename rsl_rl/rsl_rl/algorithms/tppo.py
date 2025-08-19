@@ -1,5 +1,6 @@
 """ PPO with teacher network """
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,14 +12,16 @@ from rsl_rl.storage.rollout_storage import ActionLabelRollout
 from rsl_rl.algorithms.ppo import PPO
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
+
 # assuming learning iteration is at an assumable iteration scale
 def GET_PROB_FUNC(option, iteration_scale):
     PROB_options = {
-        "linear": (lambda x: max(0, 1 - 1 / iteration_scale * x)),
-        "exp": (lambda x: max(0, (1 - 1 / iteration_scale) ** x)),
-        "tanh": (lambda x: max(0, 0.5 * (1 - torch.tanh(1 / iteration_scale * (x - iteration_scale))))),
+        "linear": (lambda x: max(0.0, 1 - 1 / iteration_scale * x)),
+        "exp": (lambda x: max(0.0, (1 - 1 / iteration_scale) ** x)),
+        "tanh": (lambda x: max(0.0, 0.5 * (1 - math.tanh(1 / iteration_scale * (x - iteration_scale))))),
     }
     return PROB_options[option]
+
 
 class TPPO(PPO):
     def __init__(self,
@@ -40,6 +43,11 @@ class TPPO(PPO):
             lr_scheduler= dict(),
             hidden_state_resample_prob= 0.0, # if > 0, Some hidden state in the minibatch will be resampled
             action_labels_from_sample= False, # if True, the action labels from teacher policy will be from policy.act instead of policy.act_inference
+            # AW-BC options
+            awbc_weighting: bool = True,
+            awbc_weight_type: str = "percentile",  # 'percentile' | 'softmax'
+            awbc_percentile: int = 95,              # used when percentile
+            awbc_weight_clip: float = 1.0,          # clamp max weight
             **kwargs,
         ):
         """
@@ -71,6 +79,13 @@ class TPPO(PPO):
         self.hidden_state_resample_prob = hidden_state_resample_prob
         self.action_labels_from_sample = action_labels_from_sample
         self.transition = ActionLabelRollout.Transition()
+        # AW-BC hyperparameters
+        self.awbc_weighting = awbc_weighting
+        self.awbc_weight_type = awbc_weight_type
+        self.awbc_percentile = awbc_percentile
+        self.awbc_weight_clip = awbc_weight_clip
+        # optional writer for custom logs (set by runner)
+        self.writer = None
 
         # build and load teacher network
         teacher_actor_critic = getattr(modules, teacher_policy_class_name)(**teacher_policy)
@@ -102,8 +117,8 @@ class TPPO(PPO):
         )
 
     def act(self, obs, critic_obs):
-        # get actions
-        return_ = super().act(obs, critic_obs)
+        # get actions via base (fills self.transition.*)
+        super().act(obs, critic_obs)
         if self.label_action_with_critic_obs and self.action_labels_from_sample:
             self.transition.action_labels = self.teacher_actor_critic.act(critic_obs).detach()
         elif self.label_action_with_critic_obs:
@@ -116,15 +131,24 @@ class TPPO(PPO):
         # decide whose action to use
         if not hasattr(self, "use_teacher_act_mask"):
             self.use_teacher_act_mask = torch.ones(obs.shape[0], device= self.device, dtype= torch.bool)
-        return_[self.use_teacher_act_mask] = self.transition.action_labels[self.use_teacher_act_mask]
-
-        return return_
+        # replace selected actions with teacher labels
+        if isinstance(self.transition.actions, torch.Tensor) and isinstance(self.transition.action_labels, torch.Tensor):
+            mask = self.use_teacher_act_mask
+            if mask.dim() == 1:
+                mask = mask.unsqueeze(-1)
+            # in-place blend
+            self.transition.actions.copy_(torch.where(mask, self.transition.action_labels, self.transition.actions))
+            return self.transition.actions
+        else:
+            # fallback: return teacher labels
+            return self.transition.action_labels
     
     def process_env_step(self, rewards, dones, infos, next_obs, next_critic_obs):
         return_ = super().process_env_step(rewards, dones, infos, next_obs, next_critic_obs)
         self.teacher_actor_critic.reset(dones)
         # resample teacher action mask for those dones env
-        self.use_teacher_act_mask[dones] = torch.rand(dones.sum(), device= self.device) < self.teacher_act_prob(self.current_learning_iteration)
+        prob = self.teacher_act_prob(self.current_learning_iteration) if callable(self.teacher_act_prob) else float(self.teacher_act_prob)
+        self.use_teacher_act_mask[dones] = torch.rand(dones.sum(), device= self.device) < prob
         return return_
 
     def collect_transition_from_dataset(self, transition, infos):
@@ -145,6 +169,7 @@ class TPPO(PPO):
             transition.next_observation, 
             transition.next_privileged_observation
         )
+
     def compute_returns(self, last_critic_obs):
         if not self.using_ppo:
             return
@@ -234,30 +259,28 @@ class TPPO(PPO):
             dist_loss = -action_labels_log_prob
         elif self.distill_target == "kl":
             raise NotImplementedError()
+        else:
+            # fallback to L2 distance
+            dist_loss = torch.norm(
+                self.actor_critic.action_mean - minibatch.action_labels,
+                dim=-1,
+            )
         
-        # 优势加权处理
-        if hasattr(minibatch, 'positive_advantages') and minibatch.positive_advantages is not None:
+        # Advantage-weighted BC (optional)
+        if getattr(self, 'awbc_weighting', True) and hasattr(minibatch, 'positive_advantages') and minibatch.positive_advantages is not None:
             advantage_weights = self.compute_advantage_weights(minibatch.positive_advantages)
-            
-            # 应用权重到蒸馏损失
             final_dist_loss = (dist_loss * advantage_weights).mean()
-            
-            # 记录统计信息
             if hasattr(self, 'writer') and self.writer is not None:
                 self.log_advantage_weights(advantage_weights, dist_loss)
-            
-            # 存储权重统计到 stats
             stats.update({
                 'advantage_weights_mean': advantage_weights.mean(),
                 'advantage_weights_std': advantage_weights.std(),
                 'advantage_weights_max': advantage_weights.max(),
                 'high_weight_ratio': (advantage_weights > 0.7).float().mean(),
-                'unweighted_dist_loss': dist_loss.mean(),  # 对比用
+                'unweighted_dist_loss': dist_loss.mean(),
             })
         else:
             final_dist_loss = dist_loss.mean()
-            advantage_weights = torch.ones_like(dist_loss)
-
 
         if "tanh" in self.distill_target:
             stats["l1distance"] = torch.norm(
@@ -273,9 +296,7 @@ class TPPO(PPO):
 
         # update distillation loss coef if applicable
         self.distillation_loss_coef = self.distillation_loss_coef_func(self.current_learning_iteration) if hasattr(self, "distillation_loss_coef_func") else self.__distillation_loss_coef
-        
         losses["distillation_loss"] = final_dist_loss
-
 
         # distill latent embedding
         if self.distill_latent_obs_component_mapping is not None:
@@ -320,53 +341,51 @@ class TPPO(PPO):
                         (target_latent + 1) * 0.5, # (n, t, d)
                         reduction= "none",
                     ).mean(-1) * 2 * l1 / latent.shape[-1] # (n, t)
+                else:
+                    dist_loss = torch.norm(
+                        latent - target_latent,
+                        dim=-1,
+                    )
                 setattr(self, f"distill_latent_{k}_coef", self.distill_latent_coef)
                 losses[f"distill_latent_{k}"] = dist_loss.mean()
 
         return losses, inter_vars, stats
 
-    def compute_advantage_weights(self, positive_advantages, method='percentile'):
-        """计算优势权重"""
+    def compute_advantage_weights(self, positive_advantages, method=None):
+        """计算优势权重，使用配置中的类型/分位数/截断。"""
         if positive_advantages.numel() == 0:
             return torch.ones_like(positive_advantages)
         
-        positive_advantages = positive_advantages.squeeze(-1)  # 去掉最后一维
-        
-        # 过滤掉零值
+        positive_advantages = positive_advantages.squeeze(-1)
         non_zero_mask = positive_advantages > 0
         if not non_zero_mask.any():
             return torch.ones_like(positive_advantages)
         
+        method = method or getattr(self, 'awbc_weight_type', 'percentile')
         if method == 'percentile':
-            # 方法1：分位数归一化 + 截断
-            p95 = torch.quantile(positive_advantages[non_zero_mask], 0.95)
-            weights = torch.clamp(positive_advantages / (p95 + 1e-8), max=1.0)
+            q = float(getattr(self, 'awbc_percentile', 95)) / 100.0
+            p = torch.quantile(positive_advantages[non_zero_mask], q)
+            clip = float(getattr(self, 'awbc_weight_clip', 1.0))
+            weights = torch.clamp(positive_advantages / (p + 1e-8), max=clip)
         elif method == 'softmax':
-            # 方法2：softmax 归一化
             tau = torch.quantile(positive_advantages[non_zero_mask], 0.9)
             weights = torch.softmax(positive_advantages / (tau + 1e-8), dim=0) * len(positive_advantages)
-            weights = torch.clamp(weights, max=1.0)
+            clip = float(getattr(self, 'awbc_weight_clip', 1.0))
+            weights = torch.clamp(weights, max=clip)
         else:
             weights = torch.ones_like(positive_advantages)
         
-        return weights.detach()  # 不参与梯度计算
+        return weights.detach()
 
     def log_advantage_weights(self, weights, losses):
-        """记录优势权重的详细统计"""
         if not hasattr(self, 'writer') or self.writer is None:
             return
-            
-        # 权重统计
         self.writer.add_scalar('AW-BC/weight_mean', weights.mean(), self.current_learning_iteration)
         self.writer.add_scalar('AW-BC/weight_std', weights.std(), self.current_learning_iteration)
         self.writer.add_scalar('AW-BC/weight_max', weights.max(), self.current_learning_iteration)
         self.writer.add_scalar('AW-BC/weight_min', weights.min(), self.current_learning_iteration)
-        
-        # 高权重样本占比
         high_weight_ratio = (weights > 0.7).float().mean()
         self.writer.add_scalar('AW-BC/high_weight_ratio', high_weight_ratio, self.current_learning_iteration)
-        
-        # 分桶损失分析
         try:
             weight_quantiles = torch.quantile(weights, torch.tensor([0.5, 0.75, 0.9], device=weights.device))
             for i, q in enumerate([0.5, 0.75, 0.9]):
@@ -374,6 +393,5 @@ class TPPO(PPO):
                 if mask.sum() > 0:
                     bucket_loss = losses[mask].mean()
                     self.writer.add_scalar(f'AW-BC/loss_Q{int(q*100)}', bucket_loss, self.current_learning_iteration)
-        except:
-            # 如果样本数太少，跳过分桶分析
+        except Exception:
             pass

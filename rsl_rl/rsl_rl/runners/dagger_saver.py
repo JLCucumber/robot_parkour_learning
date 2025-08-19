@@ -32,15 +32,19 @@ class DaggerSaver(DemonstrationSaver):
             teacher_act_prob: The same as in TPPO, but the iteration will be get from the model checkpoint
         """
         super().__init__(*args, **kwargs)
+
         self.training_policy_logdir = training_policy_logdir
+
+        print(f"[DEBUG] [DAGGER SAVER] Using training policy logdir: {self.training_policy_logdir}")
+
         self.teacher_act_prob = teacher_act_prob
         self.update_times_scale = update_times_scale
         self.action_sample_std = action_sample_std
         self.log_to_tensorboard = log_to_tensorboard
         
-        # ONLY in NFS mode
-        self.shared_path = "/mnt/rpl_project/"
-        self.training_policy_logdir = osp.join(self.shared_path, self.training_policy_logdir)
+        # # ONLY in NFS mode
+        # self.shared_path = "/mnt/rpl_project/"
+        # self.training_policy_logdir = osp.join(self.shared_path, self.training_policy_logdir)
 
         if self.log_to_tensorboard:
             self.tb_writer = SummaryWriter(
@@ -95,29 +99,31 @@ class DaggerSaver(DemonstrationSaver):
         models = [file for file in os.listdir(self.training_policy_logdir) if 'model' in file]
         if len(models) == 0:
             print("No model found in the training policy logdir. Make sure you don't need to load the training policy or stop the program.")
-        models.sort(key=lambda m: '{0:0>15}'.format(m))
-        model_f = models[-1]
+        else:
+            models.sort(key=lambda m: '{0:0>15}'.format(m))
+            model_f = models[-1]
 
-        model_f_iter = int((model_f.split(".")[0]).split("_")[1])
-        if model_f_iter > self.training_policy_iteration:
-            loaded_dict = None
-            while loaded_dict is None:
-                try:
-                    loaded_dict = torch.load(osp.join(self.training_policy_logdir, model_f))
-                except RuntimeError:
-                    print("Failed to load model state dict file, wait 0.1s")
-                    time.sleep(0.1)
-            self.training_policy.load_state_dict(loaded_dict["model_state_dict"])
-            self.training_policy_iteration = loaded_dict["iter"]
+            model_f_iter = int((model_f.split(".")[0]).split("_")[1])
+            if model_f_iter > self.training_policy_iteration:
+                loaded_dict = None
+                while loaded_dict is None:
+                    try:
+                        loaded_dict = torch.load(osp.join(self.training_policy_logdir, model_f))
+                    except RuntimeError:
+                        print("Failed to load model state dict file, wait 0.1s")
+                        time.sleep(0.1)
+                self.training_policy.load_state_dict(loaded_dict["model_state_dict"])
+                self.training_policy_iteration = loaded_dict["iter"]
 
-            # override the action std in self.training_policy
-            with torch.no_grad():
-                if self.action_sample_std > 0:
-                    self.training_policy.std[:] = self.action_sample_std
-            print("Training policy iteration: {}".format(self.training_policy_iteration))
-        
-        # 
-        self.use_teacher_act_mask = torch.rand(self.env.num_envs) < self.teacher_act_prob(self.training_policy_iteration)
+                # override the action std in self.training_policy
+                with torch.no_grad():
+                    if self.action_sample_std > 0:
+                        self.training_policy.std[:] = self.action_sample_std
+                print("Training policy iteration: {}".format(self.training_policy_iteration))
+
+        # mask must be on the same device as tensors used later
+        prob = self.teacher_act_prob(self.training_policy_iteration) if callable(self.teacher_act_prob) else float(self.teacher_act_prob)
+        self.use_teacher_act_mask = (torch.rand(self.env.num_envs, device=self.env.device) < prob)
 
     def get_transition(self):
         """ core function: student policy rollout & teacher policy labelling"""
@@ -127,10 +133,9 @@ class DaggerSaver(DemonstrationSaver):
 
         # 
         with torch.no_grad():
-            if self.use_critic_obs:
-                teacher_values = self.policy.critic(self.critic_obs)
-            else:
-                teacher_values = self.policy.critic(self.obs)
+            critic_in = self.critic_obs if (self.use_critic_obs and self.critic_obs is not None) else self.obs
+            # Use policy.evaluate to go through encoders + critic RNN correctly
+            teacher_values = self.policy.evaluate(critic_in)
 
         # get student actions
         actions = self.training_policy.act(self.obs)
@@ -140,7 +145,6 @@ class DaggerSaver(DemonstrationSaver):
 
         # step the environment
         n_obs, n_critic_obs, rewards, dones, infos = self.env.step(actions)
-
 
         # Use teacher actions to label the trajectory, no matter what the student policy does
         return teacher_actions, rewards, dones, infos, n_obs, n_critic_obs, teacher_values

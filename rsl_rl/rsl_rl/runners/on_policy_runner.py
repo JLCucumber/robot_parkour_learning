@@ -102,6 +102,7 @@ class OnPolicyRunner:
 
         print("Initialization done, start learning.")
         print("NOTE: you may see a bunch of `NaN or Inf found in input tensor` once and appears in the log. Just ignore it if it does not affect the performance.")
+        
         start_iter = self.current_learning_iteration
         tot_iter = self.current_learning_iteration + num_learning_iterations
         tot_start_time = time.time()

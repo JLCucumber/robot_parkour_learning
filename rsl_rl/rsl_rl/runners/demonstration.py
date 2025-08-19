@@ -130,12 +130,10 @@ class DemonstrationSaver:
     def get_transition(self):
         actions = self.get_policy_actions()
         
-        # 计算教师价值函数
+        # 计算教师价值函数：必须通过 policy.evaluate，让编码器/估计器/RNN 正确生效
         with torch.no_grad():
-            if self.use_critic_obs:
-                teacher_values = self.policy.critic(self.critic_obs)
-            else:
-                teacher_values = self.policy.critic(self.obs)
+            critic_in = self.critic_obs if (self.use_critic_obs and self.critic_obs is not None) else self.obs
+            teacher_values = self.policy.evaluate(critic_in)
         
         n_obs, n_critic_obs, rewards, dones, infos = self.env.step(actions)
         return actions, rewards, dones, infos, n_obs, n_critic_obs, teacher_values
@@ -153,13 +151,14 @@ class DemonstrationSaver:
         self.transition.dones = dones
 
         # store teacher value function
+        # RolloutStorage expects values shape [B,1]
         if teacher_values is not None:
-            self.transition.values = teacher_values
+            self.transition.values = teacher_values.view(-1, 1)
         else:
-            self.transition.values = torch.zeros_like(rewards).unsqueeze(-1)
+            self.transition.values = torch.zeros(rewards.shape[0], 1, device=rewards.device, dtype=rewards.dtype)
 
         # fill up some of the attributes to meet the interface of rollout storage, but not collected to files
-        self.transition.actions_log_prob = torch.zeros_like(rewards)
+        self.transition.actions_log_prob = torch.zeros(rewards.shape[0], 1, device=rewards.device, dtype=rewards.dtype)
         self.transition.action_mean = torch.zeros_like(actions)
         self.transition.action_sigma = torch.zeros_like(actions)
 
@@ -196,7 +195,7 @@ class DemonstrationSaver:
         self.total_timesteps += step_slice.stop - step_slice.start
 
     def dump_metadata(self):
-        self.metadata["total_timesteps"] = self.total_timesteps.item() if isinstance(self.total_timesteps, np.int64) else self.total_timesteps
+        self.metadata["total_timesteps"] = int(self.total_timesteps)
         self.metadata["total_trajectories"] = self.total_traj_completed
         with open(osp.join(self.save_dir, 'metadata.json'), 'w') as f:
             json.dump(self.metadata, f, indent= 4)
@@ -244,7 +243,7 @@ class DemonstrationSaver:
 
 
         trajectory = dict(
-            privileged_observations= self.rollout_storage.privileged_observations[step_slice, env_i].cpu().numpy(),
+            privileged_observations= None if self.rollout_storage.privileged_observations is None else self.rollout_storage.privileged_observations[step_slice, env_i].cpu().numpy(),
             actions= self.rollout_storage.actions[step_slice, env_i].cpu().numpy(),
             rewards= self.rollout_storage.rewards[step_slice, env_i].cpu().numpy(),
             dones= self.rollout_storage.dones[step_slice, env_i].cpu().numpy(),
@@ -267,7 +266,7 @@ class DemonstrationSaver:
                     )(obs_component)
                 trajectory["obs_" + component_name] = obs_component
         else:
-            trajectory["observations"] = self.rollout_storage.observations[step_slice, env_i].cpu().numpy(),
+            trajectory["observations"] = self.rollout_storage.observations[step_slice, env_i].cpu().numpy()
         if self.transition_has_timeouts:
             trajectory["timeouts"] = self.transition_timeouts[step_slice, env_i].cpu().numpy()
         return trajectory

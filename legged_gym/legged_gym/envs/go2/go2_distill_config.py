@@ -8,19 +8,21 @@ from legged_gym.utils.helpers import merge_dict
 from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go2RoughCfgPPO
 
 multi_process_ = True
-# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-shared_path = "/mnt/rpl_project"            #${SHARED_PATH}  # Change this to your shared path if needed
-logs_root = osp.join(shared_path, "logs")  # shared path for NFS
-data_root = osp.join(shared_path, "data")  # shared path for NFS
+logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+data_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "data")
+# shared_path = "/mnt/rpl_project"            #${SHARED_PATH}  # Change this to your shared path if needed
+# logs_root = osp.join(shared_path, "logs")  # shared path for NFS
+# data_root = osp.join(shared_path, "data")  # shared path for NFS
 # logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
 
 class Go2DistillCfg( Go2FieldCfg ):
     class custom( Go2FieldCfg.custom ):
-        
+        shared_path = False
         name = "distill_go2"
+        logs_root = osp.join("/mnt/rpl_project", "logs")  # shared path for NFS
         
     class env( Go2FieldCfg.env ):
-        num_envs = 256
+        num_envs = 256 
         obs_components = [
             "lin_vel",
             "ang_vel",
@@ -158,9 +160,10 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
         action_labels_from_sample = False
 
         teacher_policy_class_name = "EncoderStateAcRecurrent"
+        # MODIFY HERE
         teacher_ac_path = osp.join(logs_root, "field_go2",
-            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
-            "model_40000.pt"
+            "Jul20_16-15-23_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromJul20_00-58-51",
+            "model_25000.pt"
         )
 
         class teacher_policy( Go2FieldCfgPPO.policy ):
@@ -231,15 +234,16 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
                 keep_latest_n_trajs = 1500
                 starting_frame_range = [0, 50]  # Jun27_16-30-02_Go2_10skills_fromMay26_20-05-28
 
-        # resume = True
-        # load_run = osp.join(logs_root, "field_go2",
-        #     "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
-        # )
-
         resume = True
-        load_run = osp.join(logs_root, "distill_go2",
-            "Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28",
+        load_run = osp.join(logs_root, "field_go2",
+            "Jul20_16-15-23_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromJul20_00-58-51",
         )
+
+        # Extend previous distillation
+        # resume = True
+        # load_run = osp.join(logs_root, "distill_go2",
+        #     "Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28",
+        # )
 
         ckpt_manipulator = "replace_encoder0" if "field_go2" in load_run else None
 

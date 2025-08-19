@@ -8,27 +8,40 @@
 # Fill in the source and destination below
 ##########################################
 
-# ==== 用户自定义部分 ====
-# trailbreaker 上的数据目录（B端）
-REMOTE_DIR="hongboli@trailbreaker.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/data/"
-# lab PC 上的保存路径（A端）
-LOCAL_DIR="/mnt/rpl_project/data/"
+# ==== 用户自定义部分（可被环境变量覆盖）====
+# 远端（通常是 C 端）数据目录
+REMOTE_DIR=${REMOTE_DIR:-"hongboli@trailbreaker.cs.ucl.ac.uk:/cs/student/projects2/rai/2024/hongboli/network_test/data/"}
+# 本机（通常是 A 端）保存路径
+LOCAL_DIR=${LOCAL_DIR:-"/mnt/rpl_project/data/"}
 
 # 日志文件路径（可选）
 # LOG_FILE="${HOME}/sync_trailbreaker.log"
 
-# 跳板设置
-PROXY_JUMP="hongboli@knuckles.cs.ucl.ac.uk"
+# 跳板设置（留空表示直连）
+PROXY_JUMP=${PROXY_JUMP:-"hongboli@knuckles.cs.ucl.ac.uk"}
+
+# Dry-run 开关（非空启用）例如： export RSYNC_DRYRUN=1
+RSYNC_DRYRUN=${RSYNC_DRYRUN:-""}
 
 # ==== 不建议修改的部分 ====
 
 echo "[$(date)] 开始同步..." #>> "$LOG_FILE"
 
 # 执行同步
-rsync -avP  --stats --info=progress2 \
+SSH_OPT="ssh"
+if [ -n "$PROXY_JUMP" ]; then
+  SSH_OPT="ssh -J $PROXY_JUMP"
+fi
+
+DRYRUN_OPT=""
+if [ -n "$RSYNC_DRYRUN" ]; then
+  DRYRUN_OPT="--dry-run"
+fi
+
+rsync -avP --stats --info=progress2 $DRYRUN_OPT \
   --inplace --whole-file --no-compress --timeout=60 \
   --include="*/" --include="*.pkl" --exclude="*.tmp" --include="*" \
-  -e "ssh -J $PROXY_JUMP" \
+  -e "$SSH_OPT" \
   "${REMOTE_DIR}" "$LOCAL_DIR" \
   #>> "$LOG_FILE" 2>&1
 

@@ -1008,7 +1008,7 @@ class LeggedRobot(BaseTask):
         if hasattr(self.cfg.sim, "body_measure_points"):
             self._init_body_volume_points()
             self._init_volume_sample_points()
-            print("Total number of volume estimation points for each robot is:", self.volume_sample_points.shape[1])
+            print("[DEBUG] - [LEGged ROBOT] Total number of volume estimation points for each robot is:", self.volume_sample_points.shape[1])
 
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
