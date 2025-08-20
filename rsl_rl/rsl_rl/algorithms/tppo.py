@@ -158,9 +158,22 @@ class TPPO(PPO):
 
         # newly added
         if hasattr(transition, 'teacher_advantages') and transition.teacher_advantages is not None:
-            self.transition.teacher_advantages = transition.teacher_advantages
-            self.transition.positive_advantages = transition.positive_advantages
-            self.transition.difficulty_scores = transition.difficulty_scores
+            # Normalize shapes to [B, 1] and move to correct device
+            def _to_col(x):
+                if x is None:
+                    return None
+                if isinstance(x, (tuple, list)):
+                    x = torch.as_tensor(x)
+                if not isinstance(x, torch.Tensor):
+                    x = torch.tensor(x, dtype=torch.float32)
+                x = x.to(self.device)
+                if x.dim() == 1:
+                    x = x.unsqueeze(-1)
+                return x
+
+            self.transition.teacher_advantages = _to_col(transition.teacher_advantages)
+            self.transition.positive_advantages = _to_col(transition.positive_advantages)
+            self.transition.difficulty_scores = _to_col(transition.difficulty_scores)
         
         super().process_env_step(
             transition.reward, 

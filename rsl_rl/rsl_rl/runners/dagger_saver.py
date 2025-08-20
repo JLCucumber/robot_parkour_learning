@@ -134,11 +134,15 @@ class DaggerSaver(DemonstrationSaver):
         # 
         with torch.no_grad():
             critic_in = self.critic_obs if (self.use_critic_obs and self.critic_obs is not None) else self.obs
+            # sanitize to avoid NaN/Inf warnings during value eval
+            if hasattr(self, "_sanitize_tensor"):
+                critic_in = self._sanitize_tensor(critic_in)
             # Use policy.evaluate to go through encoders + critic RNN correctly
             teacher_values = self.policy.evaluate(critic_in)
 
         # get student actions
-        actions = self.training_policy.act(self.obs)
+        obs_in = self._sanitize_tensor(self.obs) if hasattr(self, "_sanitize_tensor") else self.obs
+        actions = self.training_policy.act(obs_in)
 
         # mix actions
         actions[self.use_teacher_act_mask] = teacher_actions[self.use_teacher_act_mask]

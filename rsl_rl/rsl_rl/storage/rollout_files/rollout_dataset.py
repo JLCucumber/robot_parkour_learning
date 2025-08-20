@@ -132,6 +132,8 @@ class RolloutDataset(RolloutFileBase):
         self.unused_trajectory_idxs = list(range(len(self.all_available_trajectory_dirs)))
         if self.random_shuffle_traj_order:
             self.unused_trajectory_idxs = np.random.permutation(self.unused_trajectory_idxs)
+        # reset reload notice flag so the next exhaustion prints only once
+        self._reload_notice_printed = False
         return True
 
     def assemble_obs_components(self, traj_data):
@@ -268,8 +270,12 @@ class RolloutDataset(RolloutFileBase):
                 # NOTE: self.unused_trajectory_idxs should be shuffled during read_dataset_directory if needed
 
                 if len(self.unused_trajectory_idxs) == 0:
-                    print(f"1500 Trajectories Runs Out! ")
-                    print(f"Loading New Trajectories...")
+                    if not getattr(self, "_reload_notice_printed", False):
+                        total = len(self.all_available_trajectory_dirs)
+                        keep_n = self.keep_latest_n_trajs if hasattr(self, "keep_latest_n_trajs") else None
+                        suffix = f", keep_latest_n_trajs={keep_n}" if keep_n else ""
+                        print(f"RolloutDataset: ran out of trajectories (used {total}{suffix}). Reloading dataset...")
+                        self._reload_notice_printed = True
                     raise StopIteration
                 self.traj_identifiers[env_idx] = self.unused_trajectory_idxs.pop(0)
 

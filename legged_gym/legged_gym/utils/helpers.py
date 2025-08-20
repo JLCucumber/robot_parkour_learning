@@ -58,22 +58,52 @@ def class_to_dict(obj) -> dict:
         result[key] = element
     return result
 
-def update_class_from_dict(obj, dict_, strict= False):
-    """ If strict, attributes that are not in dict_ will be removed from obj """
-    attr_names = [n for n in obj.__dict__.keys() if not (n.startswith("__") and n.endswith("__"))]
-    for attr_name in attr_names:
-        if not attr_name in dict_:
-            delattr(obj, attr_name)
-    for key, val in dict_.items():
-        attr = getattr(obj, key, None)
-        if attr is None or is_primitive_type(attr):
-            if isinstance(val, dict):
-                setattr(obj, key, copy.deepcopy(val))
-                update_class_from_dict(getattr(obj, key), val)
+def update_class_from_dict(obj, dict_, strict: bool = False):
+    """Safely update a config-like object from a dict.
+
+    Behavior changes versus the old implementation:
+    - Only updates attributes that already exist on the target object; unknown keys are ignored.
+    - Recurses into sub-objects (those having a __dict__) when the incoming value is a dict.
+    - For primitive attributes (including list, tuple, dict), assigns the incoming value directly without recursing.
+    - If strict is True, removes existing attributes on the target object that are missing from dict_.
+    """
+    # If the target itself is a dict, update it in-place (optionally strict)
+    if isinstance(obj, dict):
+        if strict:
+            for k in list(obj.keys()):
+                if k not in dict_:
+                    obj.pop(k, None)
+        for k, v in dict_.items():
+            if isinstance(v, dict) and isinstance(obj.get(k), dict):
+                update_class_from_dict(obj[k], v, strict=strict)
             else:
-                setattr(obj, key, val)
+                obj[k] = v
+        return
+
+    # For class-like objects, operate only on known attributes
+    if not hasattr(obj, "__dict__"):
+        # Non-object target, nothing to update recursively; assign is up to caller
+        return
+
+    attr_names = [n for n in obj.__dict__.keys() if not (n.startswith("__") and n.endswith("__"))]
+
+    if strict:
+        for attr_name in list(attr_names):
+            if attr_name not in dict_:
+                delattr(obj, attr_name)
+
+    for key in attr_names:
+        if key not in dict_:
+            continue
+        val = dict_[key]
+        attr = getattr(obj, key)
+
+        # If both sides are object-like and incoming is a dict, recurse
+        if isinstance(val, dict) and hasattr(attr, "__dict__"):
+            update_class_from_dict(attr, val, strict=strict)
         else:
-            update_class_from_dict(attr, val)
+            # Primitive (or list/tuple/dict) overwrite
+            setattr(obj, key, val)
     return
 
 def set_seed(seed):

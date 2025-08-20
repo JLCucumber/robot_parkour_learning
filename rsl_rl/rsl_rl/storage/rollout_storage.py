@@ -470,11 +470,20 @@ class ActionLabelRollout(QueueRolloutStorage):
 
         # 添加新字段
         if hasattr(transition, 'teacher_advantages') and transition.teacher_advantages is not None:
-            self.teacher_advantages[self.step] = transition.teacher_advantages
+            ta = transition.teacher_advantages
+            if isinstance(ta, torch.Tensor) and ta.dim() == 1:
+                ta = ta.unsqueeze(-1)
+            self.teacher_advantages[self.step].copy_(ta)
         if hasattr(transition, 'positive_advantages') and transition.positive_advantages is not None:
-            self.positive_advantages[self.step] = transition.positive_advantages  
+            pa = transition.positive_advantages
+            if isinstance(pa, torch.Tensor) and pa.dim() == 1:
+                pa = pa.unsqueeze(-1)
+            self.positive_advantages[self.step].copy_(pa)
         if hasattr(transition, 'difficulty_scores') and transition.difficulty_scores is not None:
-            self.difficulty_scores[self.step] = transition.difficulty_scores
+            ds = transition.difficulty_scores
+            if isinstance(ds, torch.Tensor) and ds.dim() == 1:
+                ds = ds.unsqueeze(-1)
+            self.difficulty_scores[self.step].copy_(ds)
 
         return super().add_transitions(transition)
 

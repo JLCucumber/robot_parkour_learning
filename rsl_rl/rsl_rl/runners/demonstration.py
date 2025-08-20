@@ -4,6 +4,7 @@ import json
 import pickle
 import tempfile
 import time
+import atexit
 
 import numpy as np
 import torch
@@ -44,6 +45,25 @@ class DemonstrationSaver:
         self.obs_disassemble_mapping = obs_disassemble_mapping
         self.demo_by_sample = demo_by_sample
         self.RolloutStorageCls = RolloutStorage
+        self._closed = False
+
+        # Ensure cleanup runs before module teardown to avoid NameError on builtins like open
+        atexit.register(self._atexit_cleanup)
+
+    @staticmethod
+    def _sanitize_tensor(x: torch.Tensor) -> torch.Tensor:
+        """Replace NaN/Inf with finite numbers to keep policy stable."""
+        try:
+            return torch.nan_to_num(x, nan=0.0, posinf=1e6, neginf=-1e6)
+        except Exception:
+            return x
+
+    def _atexit_cleanup(self):
+        try:
+            self.close()
+        except Exception:
+            # Swallow any errors during interpreter shutdown
+            pass
 
     def init_traj_handlers(self):
         # check if data exists, continue
@@ -117,14 +137,16 @@ class DemonstrationSaver:
         return dones, infos
 
     def get_policy_actions(self):
+        obs_in = self._sanitize_tensor(self.obs)
+        critic_in = self._sanitize_tensor(self.critic_obs) if self.critic_obs is not None else None
         if self.use_critic_obs and self.demo_by_sample:
-            actions = self.policy.act(self.critic_obs)
+            actions = self.policy.act(critic_in)
         elif self.use_critic_obs:
-            actions = self.policy.act_inference(self.critic_obs)
+            actions = self.policy.act_inference(critic_in)
         elif self.demo_by_sample:
-            actions = self.policy.act(self.obs)
+            actions = self.policy.act(obs_in)
         else:
-            actions = self.policy.act_inference(self.obs)
+            actions = self.policy.act_inference(obs_in)
         return actions
 
     def get_transition(self):
@@ -133,6 +155,7 @@ class DemonstrationSaver:
         # 计算教师价值函数：必须通过 policy.evaluate，让编码器/估计器/RNN 正确生效
         with torch.no_grad():
             critic_in = self.critic_obs if (self.use_critic_obs and self.critic_obs is not None) else self.obs
+            critic_in = self._sanitize_tensor(critic_in)
             teacher_values = self.policy.evaluate(critic_in)
         
         n_obs, n_critic_obs, rewards, dones, infos = self.env.step(actions)
@@ -197,8 +220,12 @@ class DemonstrationSaver:
     def dump_metadata(self):
         self.metadata["total_timesteps"] = int(self.total_timesteps)
         self.metadata["total_trajectories"] = self.total_traj_completed
-        with open(osp.join(self.save_dir, 'metadata.json'), 'w') as f:
-            json.dump(self.metadata, f, indent= 4)
+        try:
+            with open(osp.join(self.save_dir, 'metadata.json'), 'w') as f:
+                json.dump(self.metadata, f, indent= 4)
+        except Exception:
+            # Best-effort write; don't crash on shutdown
+            pass
     
     def compute_gae_advantages(self, rewards, values, dones, gamma=0.99, gae_lambda=0.95):
         """计算 GAE 优势函数"""
@@ -373,17 +400,43 @@ class DemonstrationSaver:
         print("total_trajectories", self.total_traj_completed)
 
     def close(self):
-        """ check empty directories and remove them """
-        pass
+        """Finalize and clean up resources, safe to call multiple times."""
+        if getattr(self, "_closed", False):
+            return
+        try:
+            # Remove empty trajectory directories
+            traj_idxs = getattr(self, 'traj_idxs', [])
+            if traj_idxs is not None:
+                for traj_idx in list(traj_idxs):
+                    traj_dir = osp.join(self.save_dir, f"trajectory_{traj_idx}")
+                    try:
+                        if os.path.isdir(traj_dir) and len(os.listdir(traj_dir)) == 0:
+                            os.rmdir(traj_dir)
+                    except Exception:
+                        pass
+
+            # Account for any buffered steps not yet added to total_timesteps
+            dumped = getattr(self, 'dumped_traj_lengths', None)
+            if dumped is not None:
+                for timestep_count in dumped:
+                    try:
+                        self.total_timesteps += int(timestep_count)
+                    except Exception:
+                        pass
+
+            # Persist metadata
+            try:
+                self.dump_metadata()
+            except Exception:
+                pass
+
+            print(f"Saved dataset in {self.save_dir}")
+        finally:
+            self._closed = True
 
     def __del__(self):
-        """ Incase the process stops accedentally, close the file handlers """
-        for traj_idx in self.traj_idxs:
-            traj_dir = osp.join(self.save_dir, f"trajectory_{traj_idx}")
-            # remove the empty directories
-            if len(os.listdir(traj_dir)) == 0:
-                os.rmdir(traj_dir)
-        for timestep_count in self.dumped_traj_lengths:
-            self.total_timesteps += timestep_count
-        self.dump_metadata()
-        print(f"Saved dataset in {self.save_dir}")
+        """Attempt to cleanup; ignore errors during interpreter shutdown."""
+        try:
+            self.close()
+        except Exception:
+            pass

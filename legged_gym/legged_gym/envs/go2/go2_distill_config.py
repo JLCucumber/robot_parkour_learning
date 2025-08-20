@@ -38,7 +38,7 @@ class Go2DistillCfg( Go2FieldCfg ):
         data_root = data_root
 
     class env( Go2FieldCfg.env ):
-        num_envs = 256 
+        num_envs = 32 
         obs_components = [
             "lin_vel",
             "ang_vel",
@@ -176,11 +176,17 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
         action_labels_from_sample = False
 
         teacher_policy_class_name = "EncoderStateAcRecurrent"
-        # MODIFY HERE
+
+
         teacher_ac_path = osp.join(logs_root, "field_go2",
-            "Jul20_16-15-23_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromJul20_00-58-51",
-            "model_25000.pt"
+            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
+            "model_40000.pt"
         )
+
+        # teacher_ac_path = osp.join(logs_root, "field_go2",
+        #     "Aug19_18-16-38_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromAug19_10-32-13",
+        #     "model_50000.pt"
+        # )
 
         class teacher_policy( Go2FieldCfgPPO.policy ):
             num_actor_obs = 48 + 21 * 11
@@ -247,13 +253,19 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
                 data_dir = data_root
                 dataset_loops = -1
                 random_shuffle_traj_order = True
-                keep_latest_n_trajs = 1500
+                keep_latest_n_trajs = 200
                 starting_frame_range = [0, 50]  # Jun27_16-30-02_Go2_10skills_fromMay26_20-05-28
+
 
         resume = True
         load_run = osp.join(logs_root, "field_go2",
-            "Jul20_16-15-23_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromJul20_00-58-51",
+            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
         )
+
+        # resume = True
+        # load_run = osp.join(logs_root, "field_go2",
+        #     "Jul20_16-15-23_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromJul20_00-58-51",
+        # )
 
         # Extend previous distillation
         # resume = True

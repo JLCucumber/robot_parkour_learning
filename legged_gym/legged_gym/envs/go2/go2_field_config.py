@@ -208,6 +208,11 @@ class Go2FieldCfgPPO( Go2RoughCfgPPO ):
     class runner( Go2RoughCfgPPO.runner ):
         experiment_name = "field_go2"
 
+        # resume = True
+        # load_run = osp.join(logs_root, "rough_go2",
+        #     "May26_18-40-14_Go2Rough_pEnergy-2e-05_pDofErr-1e-02_pDofErrN-1e+00_pStand-2e+00_noResume",
+        # )
+
         resume = True
         load_run = osp.join(logs_root, "rough_go2",
             "Jul20_00-58-51_Go2Rough_pEnergy-2e-05_pDofErr-1e-02_pDofErrN-1e+00_pStand-2e+00_noResume",

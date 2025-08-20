@@ -113,9 +113,9 @@ def play(args):
         # depth= [0.5, 0.8],
 
 
-        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["length"] = [0.3, 0.55]
-        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["depth"] = [0.5, 0.8]
-        # env_cfg.terrain.BarrierTrack_kwargs["leap"]["height"] = 0.3 # expected leap height over the gap
+        env_cfg.terrain.BarrierTrack_kwargs["leap"]["length"] = [0.3, 0.55]
+        env_cfg.terrain.BarrierTrack_kwargs["leap"]["depth"] = [0.5, 0.8]
+        env_cfg.terrain.BarrierTrack_kwargs["leap"]["height"] = 0.3 # expected leap height over the gap
 
 
         # env_cfg.terrain.BarrierTrack_kwargs["hurdle"]["height"] = [0.05, 0.5]
@@ -198,8 +198,8 @@ def play(args):
     env_cfg.viewer.draw_measure_heights = False
     env_cfg.viewer.draw_height_measurements = False
     env_cfg.viewer.draw_volume_sample_points = False
-    env_cfg.viewer.draw_sensors = True
-    env_cfg.viewer.draw_commands = True
+    env_cfg.viewer.draw_sensors = False
+    env_cfg.viewer.draw_commands = False
 
     env_cfg.viewer.draw_sensor_readings = True
     env_cfg.viewer.forward_depth_as_pointcloud = True
