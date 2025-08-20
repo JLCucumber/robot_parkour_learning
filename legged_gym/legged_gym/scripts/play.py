@@ -623,7 +623,7 @@ if __name__ == '__main__':
         dict(name= "--record", action= "store_true", default= False, help= "record frames"),
         dict(name= "--frames_dir", type= str, default= "images", help= "which folder to store intermediate recorded frames."),
     ])
-    MOVE_CAMERA = False #(args.num_envs is None)
+    MOVE_CAMERA = True #(args.num_envs is None)
     CAMERA_FOLLOW = MOVE_CAMERA
     RECORD_FRAMES = args.record
     try:

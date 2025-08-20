@@ -55,6 +55,7 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 
 STEP 3
+
 python legged_gym/scripts/train.py --headless --task go2_distill
 python legged_gym/scripts/train.py --headless --task go2_field
 
@@ -63,7 +64,9 @@ python legged_gym/scripts/train.py --headless --task go2_field
 python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul08_18-44-07_Go2_8skills_fromMay26_20-05-28/
 python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul04_18-55-33_Go2_10skills_fromMay26_20-05-28/ --sim_device=cuda:0 --rl_device=cuda:0 --graphics_device_id=0
 python legged_gym/scripts/train.py --headless --task=go2_distill
-`
+
+python legged_gym/scripts/train.py --headless --task=go2_distill
+
 (
 echo $LD_LIBRARY_PATH
 /home/jlcucumber/miniforge3/envs/isaacgym_parkour_lhb/lib/libpython3.8.so.1.0
@@ -122,7 +125,14 @@ rm -rf /mnt/rpl_projects/data/*
 
 ## Step 1: Launch Training on lab 4090 in Tmux
 
+tmux new -s train_session
+conda activate isaac_gym_parkour
+python legged_gym/scripts/train.py --task=go2_distill --headless
+
+
 ## Step 2: Launch Sync bash
+
+
 
 
 ---
@@ -135,3 +145,52 @@ tensorboard --logdir=/home/data/projects/robot_parkour_learning/legged_gym/logs/
 # Launch IsaacGym On  my laptop
 
 cd robot_parkour_learning/legged_gym
+
+---
+
+
+
+
+# Quick Delete Tmp Data
+cd /mnt/rpl_project/data
+rm -rf path
+
+
+ssh -L 8081:ruddy-l.cs.ucl.ac.uk:8443 hongboli@knuckles.cs.ucl.ac.uk
+
+
+# Quick Launch IsaacGym on UCL's GPU
+
+## Step 1
+
+tmux new -s collect bash
+or
+tmux attach -t collect 
+
+nvidia-smi
+cd /cs/student/projects2/rai/2024/hongboli
+mamba activate /cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour
+
+// python test_gui.py
+
+## Step 2
+
+### Option 1
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+### Option 2
+export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+
+## Step 3
+cd my_projects/robot_parkour_learning/legged_gym/
+
+(1) Collect Trajectory
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28/
+
+(2) Train Go2 
+
+(3) Train Go2 Field
+python legged_gym/scripts/train.py --headless --task go2_field 

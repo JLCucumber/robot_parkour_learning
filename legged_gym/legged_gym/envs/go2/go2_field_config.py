@@ -56,9 +56,9 @@ class Go2FieldCfg( Go2RoughCfg ):
                 # fake_offset= 0.1,
             ),
             leap= dict(
-                length= [0.05, 0.6],
+                length= [0.3, 0.55],
                 depth= [0.5, 0.8],
-                height= 0.2, # expected leap height over the gap
+                height= 0.3, # expected leap height over the gap
                 # fake_offset= 0.1,
             ),
             hurdle= dict(
@@ -116,11 +116,24 @@ class Go2FieldCfg( Go2RoughCfg ):
                 num_steps= [3, 19],
                 num_steps_curriculum= True,
             ),
+            stairsup= dict(
+                height= [0.1, 0.3],
+                length= [0.3, 0.5],
+                residual_distance= 0.05,
+                num_steps= [3, 19],
+                num_steps_curriculum= True,
+            ),
+            stairsdown= dict(
+                height= [0.1, 0.3],
+                length= [0.3, 0.5],
+                num_steps= [3, 19],
+                num_steps_curriculum= True,
+            ),
             discrete_rect= dict(
                 max_height= [0.05, 0.2],
-                max_size= 0.6,
+                max_size= 0.4,
                 min_size= 0.2,
-                num_rects= 10,
+                num_rects= 30,
             ),
             wave= dict(
                 amplitude= [0.1, 0.15], # in meter

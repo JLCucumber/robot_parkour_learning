@@ -46,6 +46,7 @@ class RolloutDataset(RolloutFileBase):
     def get_frame_range(filename: str) -> tuple:
         """ Get the frame range from the filename. Return a tuple [start, end). (end is exclusive)
         """
+        print(f"RolloutData set: get frame range from {filename}")
         # print(f"RolloutData set: get frame range from {filename}")
         return (
             int(filename.split(".")[0].split("_")[1]),
