@@ -6,6 +6,13 @@ This file summarizes the minimal context to run and debug `--task go2_distill` a
 
 ### A: Local training (no NFS)
 ```bash
+
+tmux new -s train bash
+
+conda activate isaac_gym_parkour
+cd ~/hongbo_li/robot_parkour_learning/legged_gym
+
+
 echo $LEGGED_GYM_USE_SHARED_PATH
 echo $LEGGED_GYM_SHARED_PATH
 unset LEGGED_GYM_USE_SHARED_PATH LEGGED_GYM_SHARED_PATH
@@ -23,6 +30,9 @@ python legged_gym/scripts/train.py --task go2_distill --headless
 ### Push logs to C (run on A) && Pull data back to A
 ```bash
 
+tmux new -s sync_ucl bash
+
+
 # export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/logs"
 # export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/data"
 # echo a lot of things to test:
@@ -35,14 +45,14 @@ echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-export DIR_NAME="Aug20_00-01-58_Go2_11skills_fromJul20_16-15-23"
-export LEGGED_GYM_SHARED_PATH=/home/data/datasets/robot_parkour_learning
+export DIR_NAME="Aug20_21-36-59_Go2_9skills_fromMay26_20-05-28"  # <<< modify here every time before training !!!
+export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project                   #  /home/data/datasets/robot_parkour_learning or /mnt/rpl_project
 export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/"
 export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/distill_go2/"
 export REMOTE_LOG_DIR="hongboli@ucl-beachcomber:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/"
 export REMOTE_DATA_DIR="hongboli@ucl-beachcomber:/cs/student/projects2/rai/2024/hongboli/network_test/data"
 
-cd /home/data/projects/robot_parkour_learning/network_test
+cd ../network_test
 ./sync_loop.sh
 ./sync_log_single.sh
 ./sync_data_single.sh
