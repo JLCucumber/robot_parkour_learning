@@ -8,10 +8,12 @@ from legged_gym.utils.helpers import merge_dict
 from legged_gym.envs.go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO, Go2RoughCfgPPO
 
 multi_process_ = True
-# logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
-shared_path = "/mnt/rpl_project"            #${SHARED_PATH}  # Change this to your shared path if needed
-logs_root = osp.join(shared_path, "logs")  # shared path for NFS
-data_root = osp.join(shared_path, "data")  # shared path for NFS
+logs_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "logs")
+data_root = osp.join(osp.dirname(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))), "data")
+
+# shared_path = "/mnt/rpl_project"            #${SHARED_PATH}  # Change this to your shared path if needed
+# logs_root = osp.join(shared_path, "logs")  # shared path for NFS
+# data_root = osp.join(shared_path, "data")  # shared path for NFS
 # logs_root = osp.join("/mnt/rpl_project", "logs") # shared path for NFS
 
 class Go2DistillCfg( Go2FieldCfg ):

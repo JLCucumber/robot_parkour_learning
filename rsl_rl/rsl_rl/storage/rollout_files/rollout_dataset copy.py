@@ -21,6 +21,10 @@ class RolloutDataset(RolloutFileBase):
         "timeout",
         "next_observation",
         "next_privileged_observation",
+        # 新增优势相关字段
+        "teacher_advantages",
+        "positive_advantages", 
+        "difficulty_scores",
     ])
     def __init__(self, data_dir, num_envs,
             dataset_loops: int = 1,
@@ -211,6 +215,12 @@ class RolloutDataset(RolloutFileBase):
         if "obs_disassemble_mapping" in self.metadata.keys():
             traj_data = self.assemble_obs_components(traj_data)
 
+        # 新增：确保包含优势字段（向后兼容旧数据）
+        if 'advantages' not in traj_data:
+            traj_data['advantages'] = np.zeros_like(traj_data['rewards'])
+            traj_data['positive_advantages'] = np.zeros_like(traj_data['rewards']) 
+            traj_data['difficulty_scores'] = np.zeros_like(traj_data['rewards'])
+
 
         for k, v in traj_data.items():
             traj_data[k] = torch.from_numpy(v).to(self.device)
@@ -339,6 +349,25 @@ class RolloutDataset(RolloutFileBase):
                 dtype= self.traj_datas[0]["privileged_observations"].dtype,
                 device= self.device,
             )
+
+            # 新增：优势相关字段的缓冲区
+            teacher_advantages = torch.empty(
+                leading_dims,
+                dtype= self.traj_datas[0]["advantages"].dtype,
+                device= self.device,
+            )
+            positive_advantages = torch.empty(
+                leading_dims,
+                dtype= self.traj_datas[0]["positive_advantages"].dtype,
+                device= self.device,
+            )
+            difficulty_scores = torch.empty(
+                leading_dims,
+                dtype= self.traj_datas[0]["difficulty_scores"].dtype,
+                device= self.device,
+            )
+
+
             self._output_transition_buffer_leading_dims = leading_dims
             self._output_transition_buffer = self.Transition(
                 observation= observations,
@@ -349,6 +378,10 @@ class RolloutDataset(RolloutFileBase):
                 timeout= timeouts,
                 next_observation= next_observations,
                 next_privileged_observation= next_privileged_observations,
+                # 新增字段
+                teacher_advantages= teacher_advantages,
+                positive_advantages= positive_advantages,
+                difficulty_scores= difficulty_scores,
             )
         return self._output_transition_buffer
     
@@ -359,6 +392,12 @@ class RolloutDataset(RolloutFileBase):
         buffer.action.copy_(self.traj_datas[env_idx]["actions"][traj_cursor_in_file])
         buffer.reward.copy_(self.traj_datas[env_idx]["rewards"][traj_cursor_in_file].squeeze())
         buffer.done.copy_(self.traj_datas[env_idx]["dones"][traj_cursor_in_file].squeeze())
+
+        # 新增：填充优势相关字段
+        buffer.teacher_advantages.copy_(self.traj_datas[env_idx]["advantages"][traj_cursor_in_file].squeeze())
+        buffer.positive_advantages.copy_(self.traj_datas[env_idx]["positive_advantages"][traj_cursor_in_file].squeeze())
+        buffer.difficulty_scores.copy_(self.traj_datas[env_idx]["difficulty_scores"][traj_cursor_in_file].squeeze())
+        
         if "timeout" in self.traj_datas[env_idx].keys():
             buffer.timeout.copy_(self.traj_datas[env_idx]["timeouts"][traj_cursor_in_file].squeeze())
         self.traj_cursors[env_idx] += 1
