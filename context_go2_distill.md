@@ -8,6 +8,7 @@ This file summarizes the minimal context to run and debug `--task go2_distill` a
 ```bash
 
 tmux new -s train bash
+tmux attach -t train
 
 conda activate isaac_gym_parkour
 cd ~/hongbo_li/robot_parkour_learning/legged_gym
@@ -49,8 +50,8 @@ export DIR_NAME="Aug20_21-36-59_Go2_9skills_fromMay26_20-05-28"  # <<< modify he
 export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project                   #  /home/data/datasets/robot_parkour_learning or /mnt/rpl_project
 export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/"
 export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/distill_go2/"
-export REMOTE_LOG_DIR="hongboli@ucl-beachcomber:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/"
-export REMOTE_DATA_DIR="hongboli@ucl-beachcomber:/cs/student/projects2/rai/2024/hongboli/network_test/data"
+export REMOTE_LOG_DIR="hongboli@ucl-lab-albacore-4070:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/"
+export REMOTE_DATA_DIR="hongboli@ucl-lab-albacore-4070:/cs/student/projects2/rai/2024/hongboli/network_test/data"
 
 cd ../network_test
 ./sync_loop.sh
