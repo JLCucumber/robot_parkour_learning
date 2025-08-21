@@ -61,12 +61,52 @@ cd ../network_test
 
 ### C: Collect with remap (paths differ across nodes)
 ```bash
-export COLLECT_REMAP_OLD_BASE="/home/data/datasets/robot_parkour_learning"   # /mnt/rpl_project
+
+## Step 1
+
+tmux new -s collect bash
+or
+tmux attach -t collect 
+
+nvidia-smi
+cd /cs/student/projects2/rai/2024/hongboli
+mamba activate /cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour
+
+// python test_gui.py
+
+## Step 2
+
+### Option 1
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+### Option 2
+export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+
+## Step 3
+cd my_projects/robot_parkour_learning
+git ...
+
+cd my_projects/robot_parkour_learning/legged_gym/
+
+# Modify Here !!!
+export DIR_NAME="Aug20_21-36-59_Go2_9skills_fromMay26_20-05-28" 
+export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"    # "/mnt/rpl_project" or "/home/data/datasets/robot_parkour_learning" 
 export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
 export LEGGED_GYM_LOGS_ROOT="$COLLECT_REMAP_NEW_BASE/logs"
 export LEGGED_GYM_DATA_ROOT="$COLLECT_REMAP_NEW_BASE/data"
-python3 legged_gym/legged_gym/scripts/collect.py --task go2_distill --load_run <run_dir_from_A> --log
+
+# Collect Trajectory
+python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run $DIR_NAME --log
+
+# 
+python legged_gym/scripts/train.py --headless --task go2_field 
+
 ```
+
+
 
 
 ### Shared/NFS on both nodes (no remap)
