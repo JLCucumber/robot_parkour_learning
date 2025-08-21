@@ -135,13 +135,13 @@ def main(args):
             
     
     ####### customized option to increase data distribution #######
-    env_cfg.env.num_envs = 6
+    # env_cfg.env.num_envs = 6
     # env_cfg.terrain.curriculum = True
     # env_cfg.terrain.max_init_terrain_level = 0
     # env_cfg.terrain.border_size = 1.
     ############# some predefined options #############
 
-    env_cfg.terrain.num_rows = 2 ; env_cfg.terrain.num_cols = 4
+    env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 30
 
     print("[DEBUG] [COLLECT] Number of Envs: {}".format(env_cfg.env.num_envs))
     # Done custom settings
