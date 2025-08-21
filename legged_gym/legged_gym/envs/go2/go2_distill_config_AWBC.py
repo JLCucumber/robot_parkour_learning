@@ -51,8 +51,10 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
         # position_obs_key 可选，用于导出 obs 的某段切片以定位位置信息（例如 [0,3]）
         awbc_audit = dict(
             enable=True,
-            every=1000,
-            per_iter=64,
+            # 降频: 例如从 2000 提高间隔到 4000 (根据需要可再调)
+            every=4000,
+            # 每次采样更少条目降低 I/O
+            per_iter=16,
             save_dir=os.path.join(Go2DistillCfg.custom.logs_root, "awbc_audit", "go2_distill_awbc"),
             # position_obs_key=[0, 3],
         )

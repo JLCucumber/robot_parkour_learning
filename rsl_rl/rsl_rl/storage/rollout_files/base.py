@@ -54,24 +54,29 @@ class RolloutFileBase(IterableDataset):
             self.__initialized = True
         buffer = self.get_buffer(num_transitions_per_env)
         if num_transitions_per_env is None:
-            self.fill_transition(buffer)
+            stats = self.fill_transition(buffer)
         else:
             for time_idx in range(num_transitions_per_env):
                 self.fill_transition(buffer[time_idx])
-            
-        return buffer
+            stats = None
+        return buffer, stats
     
     def get_transition_batch(self):
         """ A temporal interface to simulate the env rollout, which produces (s, a, r, d, info) in
         each timestep.
         """
-        buffer = self.get_batch()
+        buffer, stats = self.get_batch()
+        info = {}
         if "timeout" in buffer:
-            # TODO: Due to the inconsistency between rsl_rl and legged_gym, timeout and time_outs
-            # are mixed
-            return buffer, {"time_outs": buffer.timeout}
-        else:
-            return buffer, {}
+            # 兼容 rsl_rl 与 legged_gym 的命名差异
+            info["time_outs"] = buffer.timeout
+        if stats is not None:
+            info.update({
+                'cumulative_transitions': stats.get('cumulative_transitions'),
+                'unique_traj_covered': stats.get('unique_traj_covered'),
+                'total_traj_pool': stats.get('total_traj_pool'),
+            })
+        return buffer, info
     
     def __iter__(self):
         self.reset()

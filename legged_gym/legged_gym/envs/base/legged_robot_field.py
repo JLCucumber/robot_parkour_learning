@@ -255,6 +255,29 @@ class LeggedRobotFieldMixin:
     def _reset_buffers(self, env_ids):
         return_ = super()._reset_buffers(env_ids)
 
+        # 在每次 reset 时打印一次（仅第一次或指定迭代）当前可选障碍及活跃分布（轻量）
+        if not hasattr(self, '_terrain_debug_printed'):
+            if self.check_BarrierTrack_terrain():
+                try:
+                    options = self.cfg.terrain.BarrierTrack_kwargs["options"]
+                    print(f"[Terrain] Available obstacle types: {options}")
+                except Exception:
+                    pass
+            self._terrain_debug_printed = True
+        # 统计当前 engaging block 类型分布（可选，避免频繁打印）
+        if getattr(self.cfg, 'terrain', None) and getattr(self.cfg.terrain, 'BarrierTrack_kwargs', None):
+            if not hasattr(self, '_last_terrain_log_step') or (self.clock in (0, 1)):
+                try:
+                    engaging_types = self.terrain.get_engaging_block_types(self.root_states[:, :3])
+                    unique_ids, counts = torch.unique(engaging_types, return_counts=True)
+                    # 映射 id->name
+                    id2name = {v: k for k, v in self.terrain.track_options_id_dict.items()}
+                    dist_str = ", ".join([f"{id2name.get(int(i), 'unk')}:{int(c)}" for i, c in zip(unique_ids, counts)])
+                    print(f"[Terrain] Engaging obstacle distribution: {dist_str}")
+                except Exception:
+                    pass
+                self._last_terrain_log_step = getattr(self, 'clock', 0)
+
         if getattr(self.cfg.domain_rand, "randomize_gravity_bias", False):
             assert hasattr(self, "gravity_bias")
             self.gravity_bias[env_ids] = torch.rand_like(self.gravity_bias[env_ids])

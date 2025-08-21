@@ -41,6 +41,10 @@ class RolloutDataset(RolloutFileBase):
         self.starting_frame_range = starting_frame_range
         
         self.num_dataset_looped = 0
+        # 统计字段
+        self._cumulative_transitions = 0
+        self._sampled_traj_identifier_set = set()
+        self._last_stat_report_iter = 0
 
     @staticmethod
     def get_frame_range(filename: str) -> tuple:
@@ -52,6 +56,15 @@ class RolloutDataset(RolloutFileBase):
             int(filename.split(".")[0].split("_")[1]),
             int(filename.split(".")[0].split("_")[2]),
         )
+
+    @staticmethod
+    def _is_main_traj_file(filename: str) -> bool:
+        """Identify a main trajectory pickle (exclude sidecar or npz)."""
+        if not filename.startswith("traj_"):
+            return False
+        if "sidecar" in filename:
+            return False
+        return filename.endswith((".pickle", ".pkl"))
 
     def read_dataset_directory(self):
         """ Refresh file-related information by scanning the directory. All traj_handlers must be
@@ -79,32 +92,29 @@ class RolloutDataset(RolloutFileBase):
                     if d.startswith("trajectory_"):
                         dir_path = os.path.join(root, d)
                         file_list = os.listdir(dir_path)
-
-                        # 检查目录是否为空
                         if not file_list:
                             continue
-
-                        # 检查目录内是否存在任何以 ".tmp" 结尾的文件
-                        if any(f.endswith(".tmp") for f in file_list):
+                        traj_pickles = [f for f in file_list if self._is_main_traj_file(f)]
+                        if not traj_pickles:
+                            continue
+                        if any(f.endswith('.tmp') for f in traj_pickles):
                             print(f"RolloutDataset: skipping {dir_path} due to a .tmp file being present.")
                             continue
-
-                        self.all_available_trajectory_dirs.append(os.path.join(root, d))
-                        trajectory_files = os.listdir(os.path.join(root, d))
-                        trajectory_files.sort(key= lambda x: self.get_frame_range(x)[1])
-                        total_timesteps += self.get_frame_range(trajectory_files[-1])[1]
+                        self.all_available_trajectory_dirs.append(dir_path)
+                        traj_pickles.sort(key=lambda x: self.get_frame_range(x)[1])
+                        try:
+                            total_timesteps += self.get_frame_range(traj_pickles[-1])[1]
+                        except Exception:
+                            pass
                 try:
                     with open(os.path.join(root, "metadata.json"), "r") as f:
                         if self.metadata is None:
-                            # print("Root Directory: {}".format(root))
                             self.metadata = json.load(f, object_pairs_hook= OrderedDict)
                         elif not metadata_repeated:
                             print("RolloutDataset: multiple metadata files found, using the first one.")
-                            # print("Root Directory: {}".format(root))
                             metadata_repeated = True
                 except FileNotFoundError:
                     pass # skip
-        # making sure all trajectories are sorted by modification time
         self.all_available_trajectory_dirs.sort(key= lambda x: os.path.getmtime(x))
         print("RolloutDataset: {} trajectories found. {} timesteps in total.".format(
             len(self.all_available_trajectory_dirs),
@@ -115,25 +125,15 @@ class RolloutDataset(RolloutFileBase):
             return False
         else:
             self.all_available_trajectory_dirs = self.all_available_trajectory_dirs[-self.keep_latest_n_trajs:]
-            # take suffix after "/trajectory_" as the index of the trajectory
             self.suffixs = [d.split("trajectory_")[-1] for d in self.all_available_trajectory_dirs]
-            # show the range of the trajectory suffixes
             print(f"RolloutDataset: trajectory suffixes range: {min(self.suffixs)} - {max(self.suffixs)}, total {len(self.suffixs)} trajectories.")
-
-                
-        #### Debugging ####
-        # take the strings after "data/" before "_jump" as the task name for all_available_trajectory_dirs
         if len(self.all_available_trajectory_dirs) > 0:
             task_names = [d.split("data/")[-1].split("_jump")[0] for d in self.all_available_trajectory_dirs]
-            # find unique task names
             unique_task_names = set(task_names)
             print("RolloutDataset: unique task names found in all available trajectories: {}".format(unique_task_names))
-        ###################
-
         self.unused_trajectory_idxs = list(range(len(self.all_available_trajectory_dirs)))
         if self.random_shuffle_traj_order:
             self.unused_trajectory_idxs = np.random.permutation(self.unused_trajectory_idxs)
-        # reset reload notice flag so the next exhaustion prints only once
         self._reload_notice_printed = False
         return True
 
@@ -164,7 +164,7 @@ class RolloutDataset(RolloutFileBase):
         self.unused_trajectory_idxs = [i for i in self.unused_trajectory_idxs if i not in self.traj_identifiers]
         self.traj_file_names = [[] for _ in range(self.num_envs)]
         self.traj_lengths = [None for _ in range(self.num_envs)]
-        self.traj_file_idxs = [None for _ in range(self.num_envs)] # in ascending order
+        self.traj_file_idxs = [None for _ in range(self.num_envs)]
         self.traj_datas = [None for _ in range(self.num_envs)]
         self.traj_cursors = np.zeros(self.num_envs, dtype= int)
 
@@ -234,10 +234,9 @@ class RolloutDataset(RolloutFileBase):
         the traj_identifiers.
         """
         traj_dir = self.all_available_trajectory_dirs[self.traj_identifiers[env_idx]]
-        trajectory_files = os.listdir(traj_dir)
-
-        # print(f"RolloutDataset: loading trajectory files from {traj_dir} for env {env_idx}, file ({self.traj_file_idxs[env_idx]}/{len(trajectory_files)}, remaining ({len(self.unused_trajectory_idxs)}/1500)) ")
-
+        trajectory_files = [f for f in os.listdir(traj_dir) if self._is_main_traj_file(f)]
+        if not trajectory_files:
+            raise RuntimeError(f"RolloutDataset: no valid main trajectory pickle files in {traj_dir}")
         trajectory_files.sort(key= lambda x: self.get_frame_range(x)[1])
         self.traj_cursors[env_idx] = np.random.randint(
             min(self.starting_frame_range[0], self.get_frame_range(trajectory_files[-1])[0]),
@@ -415,9 +414,21 @@ class RolloutDataset(RolloutFileBase):
         traj_cursor_in_file = self.traj_cursors[env_idx] - self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])[0]
         buffer.next_observation.copy_(self.traj_datas[env_idx]["observations"][traj_cursor_in_file])
         buffer.next_privileged_observation.copy_(self.traj_datas[env_idx]["privileged_observations"][traj_cursor_in_file])
+        # 统计：累计 transition & 轨迹覆盖
+        self._cumulative_transitions += 1
+        try:
+            self._sampled_traj_identifier_set.add(int(self.traj_identifiers[env_idx]))
+        except Exception:
+            pass
 
     def fill_transition(self, buffer, env_ids= None):
         if env_ids is None:
             env_ids = torch.arange(self.num_envs, device= self.device)
         for env_idx in env_ids:
             self._fill_transition_per_env(buffer[env_idx], env_idx)
+        # 返回一个 info-like dict 可供 runner 进一步写 TensorBoard
+        return {
+            'cumulative_transitions': self._cumulative_transitions,
+            'unique_traj_covered': len(self._sampled_traj_identifier_set),
+            'total_traj_pool': len(getattr(self, 'all_available_trajectory_dirs', [])),
+        }

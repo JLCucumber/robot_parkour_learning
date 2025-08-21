@@ -51,8 +51,8 @@ class Go2DistillNoAWBCCfgPPO(Go2DistillCfgPPO):
         # Plan A: 即便关闭 AW-BC，也可以开启审计导出以便对照（weights 会退化为全 1）
         awbc_audit = dict(
             enable=True,
-            every=1000,
-            per_iter=64,
+            every=4000,
+            per_iter=16,
             save_dir=os.path.join(Go2DistillCfg.custom.logs_root, "awbc_audit", "go2_distill_no_awbc"),
             # position_obs_key=[0, 3],
         )

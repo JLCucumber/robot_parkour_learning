@@ -21,7 +21,9 @@ unset LEGGED_GYM_USE_SHARED_PATH LEGGED_GYM_SHARED_PATH
 # Option 1: multi-node training 
 export LEGGED_GYM_USE_SHARED_PATH=1
 export LEGGED_GYM_SHARED_PATH=/home/data/datasets/robot_parkour_learning # /mnt/rpl_project or /home/data/datasets/robot_parkour_learning
-python legged_gym/scripts/train.py --task go2_distill --headless
+
+python legged_gym/scripts/train.py --task go2_distill_awbc --headless
+python legged_gym/scripts/train.py --task go2_distill_no_awbc --headless
 
 # Option 2: local training (using in-project log dir)
 export LEGGED_GYM_USE_SHARED_PATH=0
@@ -32,7 +34,6 @@ python legged_gym/scripts/train.py --task go2_distill --headless
 ```bash
 
 tmux new -s sync_ucl bash
-
 
 # export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/logs"
 # export REMOTE_DIR="user@{server}:/cs/student/projects2/rai/2024/hongboli/network_test/data"
@@ -46,12 +47,16 @@ echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-export DIR_NAME="Aug20_21-36-59_Go2_9skills_fromMay26_20-05-28"  # <<< modify here every time before training !!!
+export DIR_NAME="Aug21_19-28-28_Go2_9skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
 export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project                   #  /home/data/datasets/robot_parkour_learning or /mnt/rpl_project
-export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/"
-export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/distill_go2/"
-export REMOTE_LOG_DIR="hongboli@ucl-lab-albacore-4070:/cs/student/projects2/rai/2024/hongboli/network_test/logs/distill_go2/"
-export REMOTE_DATA_DIR="hongboli@ucl-lab-albacore-4070:/cs/student/projects2/rai/2024/hongboli/network_test/data"
+
+export TASK_NAME="go2_distill_awbc"                           # go2_distill_no_awbc or go2_distill_awbc
+
+export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/$TASK_NAME/"  
+export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/$TASK_NAME/"  
+
+export REMOTE_LOG_DIR="hongboli@ucl-kup:/cs/student/projects2/rai/2024/hongboli/network_test/logs/$TASK_NAME/"   
+export REMOTE_DATA_DIR="hongboli@ucl-kup:/cs/student/projects2/rai/2024/hongboli/network_test/data/$TASK_NAME_dagger/"
 
 cd ../network_test
 ./sync_loop.sh
@@ -93,14 +98,14 @@ git ...
 cd my_projects/robot_parkour_learning/legged_gym/
 
 # Modify Here !!!
-export DIR_NAME="Aug20_21-36-59_Go2_9skills_fromMay26_20-05-28" 
+export DIR_NAME="Aug21_19-28-28_Go2_9skills_fromAug19_18-16-38" 
 export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"    # "/mnt/rpl_project" or "/home/data/datasets/robot_parkour_learning" 
 export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
 export LEGGED_GYM_LOGS_ROOT="$COLLECT_REMAP_NEW_BASE/logs"
 export LEGGED_GYM_DATA_ROOT="$COLLECT_REMAP_NEW_BASE/data"
 
 # Collect Trajectory
-python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_run $DIR_NAME --log
+python legged_gym/scripts/collect.py --headless --task go2_distill_awbc --log --load_run $DIR_NAME --log
 
 # 
 python legged_gym/scripts/train.py --headless --task go2_field 

@@ -326,15 +326,15 @@ class TPPO(PPO):
                 'unweighted_dist_loss': dist_loss.mean(),
             })
 
-            print(f"[DEBUG] [TPPO] Enable AW-BC")
-            print(f"[DEBUG] [TPPO] Advantage weights: {advantage_weights.mean():.4f}")
-            print(f"[DEBUG] [TPPO] High weight ratio: {(advantage_weights > 0.7).float().mean():.4f}")
+            # print(f"[DEBUG] [TPPO] Enable AW-BC")
+            # print(f"[DEBUG] [TPPO] Advantage weights: {advantage_weights.mean():.4f}")
+            # print(f"[DEBUG] [TPPO] High weight ratio: {(advantage_weights > 0.7).float().mean():.4f}")
             # Plan A: export a small sample for offline inspection
             self._maybe_awbc_audit(minibatch, advantage_weights, dist_loss)
             
         else:
 
-            print("[DEBUG] [TPPO] AW-BC disabled, using unweighted distillation loss")
+            # print("[DEBUG] [TPPO] AW-BC disabled, using unweighted distillation loss")
 
             final_dist_loss = dist_loss.mean()
             if hasattr(self, 'writer') and self.writer is not None:
@@ -484,6 +484,22 @@ class TPPO(PPO):
         self.writer.add_scalar('AW-BC/weight_min', weights.min(), self.current_learning_iteration)
         high_weight_ratio = (weights > 0.7).float().mean()
         self.writer.add_scalar('AW-BC/high_weight_ratio', high_weight_ratio, self.current_learning_iteration)
+        # 归一化后计算有效样本量 (ESS) 与 Gini-like 集中度
+        try:
+            w = weights.detach().float()
+            if w.numel() > 0:
+                w_norm = w / (w.sum() + 1e-8)
+                ess = (w_norm.sum() ** 2) / ( (w_norm ** 2).sum() + 1e-8)
+                # Gini = 1 - 2 * sum_i ( (n - i + 0.5)/n * w_sorted_i )  (此处近似，不做严格偏差修正)
+                w_sorted, _ = torch.sort(w_norm)
+                n = w_sorted.numel()
+                idx = torch.arange(1, n+1, device=w.device, dtype=w.dtype)
+                gini = 1. - 2. * ( ( (n - idx + 0.5)/n * w_sorted ).sum() )
+                self.writer.add_scalar('AW-BC/effective_sample_size', ess, self.current_learning_iteration)
+                self.writer.add_scalar('AW-BC/effective_sample_ratio', ess / n, self.current_learning_iteration)
+                self.writer.add_scalar('AW-BC/gini_like', gini, self.current_learning_iteration)
+        except Exception:
+            pass
         try:
             weight_quantiles = torch.quantile(weights, torch.tensor([0.5, 0.75, 0.9], device=weights.device))
             for i, q in enumerate([0.5, 0.75, 0.9]):

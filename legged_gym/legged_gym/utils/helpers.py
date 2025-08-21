@@ -118,6 +118,23 @@ def set_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+def set_global_seed(seed, deterministic: bool = False):
+    """统一的全局 seed 设定入口。
+    参数:
+        seed: int, -1 则随机。
+        deterministic: 是否开启更强的确定性(可能降低性能)。
+    作用:
+        - 复用原 set_seed
+        - 可选设置 cudnn 确定性/benchmark
+    """
+    set_seed(seed)
+    try:
+        import torch
+        torch.backends.cudnn.deterministic = bool(deterministic)
+        torch.backends.cudnn.benchmark = not bool(deterministic)
+    except Exception:
+        pass
+
 def parse_sim_params(args, cfg):
     # code from Isaac Gym Preview 2
     # initialize sim params
