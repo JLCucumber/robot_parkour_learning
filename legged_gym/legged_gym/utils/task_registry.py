@@ -149,8 +149,8 @@ class TaskRegistry():
         else:
             log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
 
-        print(f"[DEBUG] - [TASK REGISTRY] Log Dir: {log_dir}")
-        print(f"[DEBUG] - [TASK REGISTRY] Runner Class Name: {train_cfg.runner_class_name}")
+        print(f"\033[1;92m[DEBUG] - [TASK REGISTRY] Log Dir: {log_dir} \033[0m")
+        # print(f"\033[92m[DEBUG] - [TASK REGISTRY] Runner Class Name: {train_cfg.runner_class_name} \033[0m")
 
         log_cfg_dict = dict()
         train_cfg_dict = class_to_dict(train_cfg)
@@ -175,7 +175,7 @@ class TaskRegistry():
         if resume:
             # load previously trained model
             resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
-            print(f"Loading model from: {resume_path}")
+            print(f"\033[1;92m[DEBUG] - [TASK REGISTRY] Loading teacher model from: {resume_path} \033[0m")
             if save_cfg:
                 shutil.copyfile(resume_path, os.path.join(log_dir, os.path.basename(resume_path)))
             runner.load(resume_path)

@@ -218,6 +218,20 @@ class OnPolicyRunner:
             )
             for k, v in locs["losses"].items():
                 log_string += f"""{k:>{pad}} {v.item():.4f}\n"""
+            # Advantage / AW-BC related stats (if provided by algorithm)
+            adv_stats_keys = [
+                'advantage_weights_mean', 'advantage_weights_std', 'advantage_weights_max',
+                'high_weight_ratio', 'unweighted_dist_loss'
+            ]
+            if any(k in locs["stats"] for k in adv_stats_keys):
+                log_string += f"""{'Advantage weights:':>{pad}}\n"""
+                for k in adv_stats_keys:
+                    if k in locs["stats"]:
+                        try:
+                            log_string += f"""  {k:>{pad-2}} {locs['stats'][k].item():.4f}\n"""
+                        except Exception:
+                            # fallback for non-tensor values
+                            log_string += f"""  {k:>{pad-2}} {locs['stats'][k]}\n"""
             log_string += (
                 f"""{'Mean action noise std:':>{pad}} {mean_std.item():.2f}\n"""
                 f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
@@ -234,6 +248,20 @@ class OnPolicyRunner:
             )
             for k, v in locs["losses"].items():
                 log_string += f"""{k:>{pad}} {v.item():.4f}\n"""
+            # Advantage / AW-BC related stats (if provided by algorithm)
+            adv_stats_keys = [
+                'advantage_weights_mean', 'advantage_weights_std', 'advantage_weights_max',
+                'high_weight_ratio', 'unweighted_dist_loss'
+            ]
+            if any(k in locs["stats"] for k in adv_stats_keys):
+                log_string += f"""{'Advantage weights:':>{pad}}\n"""
+                for k in adv_stats_keys:
+                    if k in locs["stats"]:
+                        try:
+                            log_string += f"""  {k:>{pad-2}} {locs['stats'][k].item():.4f}\n"""
+                        except Exception:
+                            # fallback for non-tensor values
+                            log_string += f"""  {k:>{pad-2}} {locs['stats'][k]}\n"""
             log_string += (
                 f"""{'Value function loss:':>{pad}} {locs["losses"]['value_loss']:.4f}\n"""
                 f"""{'Surrogate loss:':>{pad}} {locs["losses"]['surrogate_loss']:.4f}\n"""

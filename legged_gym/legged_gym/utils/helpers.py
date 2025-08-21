@@ -154,7 +154,8 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
             raise ValueError("No runs in this directory: " + root)
         load_run = last_run
     elif os.path.isabs(load_run):
-        print("Loading load_run as absolute path:", load_run)
+        # print("Loading load_run as absolute path:", load_run)
+        print("Loading load_run as absolute path")
     else:
         load_run = os.path.join(root, load_run)
 

@@ -1,6 +1,8 @@
 """ PPO with teacher network """
 
 import math
+import os
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -48,6 +50,8 @@ class TPPO(PPO):
             awbc_weight_type: str = "percentile",  # 'percentile' | 'softmax'
             awbc_percentile: int = 95,              # used when percentile
             awbc_weight_clip: float = 1.0,          # clamp max weight
+            # Audit config (Plan A)
+            awbc_audit: dict = None,
             **kwargs,
         ):
         """
@@ -86,6 +90,26 @@ class TPPO(PPO):
         self.awbc_weight_clip = awbc_weight_clip
         # optional writer for custom logs (set by runner)
         self.writer = None
+
+        # Plan A: AW-BC audit configuration
+        self._awbc_audit_enable = False
+        self._awbc_audit_every = 1000
+        self._awbc_audit_per_iter = 64
+        self._awbc_audit_save_dir = None
+        self._awbc_audit_position_key = None
+        self._awbc_audit_file_count = 0
+        if isinstance(awbc_audit, dict):
+            self._awbc_audit_enable = bool(awbc_audit.get('enable', False))
+            self._awbc_audit_every = int(awbc_audit.get('every', 1000))
+            self._awbc_audit_per_iter = int(awbc_audit.get('per_iter', 64))
+            self._awbc_audit_save_dir = awbc_audit.get('save_dir', None)
+            self._awbc_audit_position_key = awbc_audit.get('position_obs_key', None)
+
+        # Visibility: print whether AW-BC is enabled for this run
+        try:
+            print(f"\033[1;92m[DEBUG] - [TPPO] AW-BC enabled: {bool(self.awbc_weighting)} | type={self.awbc_weight_type} | pctl={self.awbc_percentile} | clip={self.awbc_weight_clip}\033[0m")
+        except Exception:
+            pass
 
         # build and load teacher network
         teacher_actor_critic = getattr(modules, teacher_policy_class_name)(**teacher_policy)
@@ -281,10 +305,19 @@ class TPPO(PPO):
         
         # Advantage-weighted BC (optional)
         if getattr(self, 'awbc_weighting', True) and hasattr(minibatch, 'positive_advantages') and minibatch.positive_advantages is not None:
+            
+            # DEBUG print
+            
             advantage_weights = self.compute_advantage_weights(minibatch.positive_advantages)
             final_dist_loss = (dist_loss * advantage_weights).mean()
             if hasattr(self, 'writer') and self.writer is not None:
                 self.log_advantage_weights(advantage_weights, dist_loss)
+                # Optional histograms for distribution overview
+                try:
+                    self.writer.add_histogram('AW-BC/weights', advantage_weights, self.current_learning_iteration)
+                    self.writer.add_histogram('AW-BC/positive_advantages', minibatch.positive_advantages.squeeze(-1), self.current_learning_iteration)
+                except Exception:
+                    pass
             stats.update({
                 'advantage_weights_mean': advantage_weights.mean(),
                 'advantage_weights_std': advantage_weights.std(),
@@ -292,8 +325,20 @@ class TPPO(PPO):
                 'high_weight_ratio': (advantage_weights > 0.7).float().mean(),
                 'unweighted_dist_loss': dist_loss.mean(),
             })
+
+            print(f"[DEBUG] [TPPO] Enable AW-BC")
+            print(f"[DEBUG] [TPPO] Advantage weights: {advantage_weights.mean():.4f}")
+            print(f"[DEBUG] [TPPO] High weight ratio: {(advantage_weights > 0.7).float().mean():.4f}")
+            # Plan A: export a small sample for offline inspection
+            self._maybe_awbc_audit(minibatch, advantage_weights, dist_loss)
+            
         else:
+
+            print("[DEBUG] [TPPO] AW-BC disabled, using unweighted distillation loss")
+
             final_dist_loss = dist_loss.mean()
+            if hasattr(self, 'writer') and self.writer is not None:
+                self.writer.add_scalar('AW-BC/enabled', float(getattr(self, 'awbc_weighting', False)), self.current_learning_iteration)
 
         if "tanh" in self.distill_target:
             stats["l1distance"] = torch.norm(
@@ -389,6 +434,46 @@ class TPPO(PPO):
             weights = torch.ones_like(positive_advantages)
         
         return weights.detach()
+
+    def _maybe_awbc_audit(self, minibatch, weights, dist_loss):
+        """Export a small batch sample for offline inspection of AW-BC (Plan A)."""
+        if not (self._awbc_audit_enable and self._awbc_audit_save_dir):
+            return
+        if (self.current_learning_iteration % max(1, self._awbc_audit_every)) != 0:
+            return
+        try:
+            os.makedirs(self._awbc_audit_save_dir, exist_ok=True)
+            K = min(int(self._awbc_audit_per_iter), weights.shape[0])
+            idx = torch.arange(K, device=weights.device)
+
+            npz = {
+                'iter': int(self.current_learning_iteration),
+                'indices': idx.detach().cpu().numpy(),
+                'weights': weights[idx].detach().cpu().numpy(),
+                'pos_adv': getattr(minibatch, 'positive_advantages', None)[idx].detach().cpu().numpy().squeeze(-1)
+                    if hasattr(minibatch, 'positive_advantages') and minibatch.positive_advantages is not None else None,
+                'dist_loss': dist_loss[idx].detach().cpu().numpy(),
+                'dist_loss_mean_unweighted': float(dist_loss.mean().detach().cpu().item()),
+                'dist_loss_mean_weighted': float((dist_loss * weights).mean().detach().cpu().item()),
+            }
+            # If a numeric position slice is configured (start,end), include it
+            if self._awbc_audit_position_key is not None:
+                key = self._awbc_audit_position_key
+                try:
+                    if isinstance(key, (tuple, list)) and len(key) == 2:
+                        start, end = int(key[0]), int(key[1])
+                        src = minibatch.critic_obs if hasattr(minibatch, 'critic_obs') and minibatch.critic_obs is not None else minibatch.obs
+                        npz['position_slice'] = src[idx, start:end].detach().cpu().numpy()
+                except Exception:
+                    pass
+
+            path = os.path.join(self._awbc_audit_save_dir,
+                                 f"awbc_audit_iter{int(self.current_learning_iteration):07d}_{self._awbc_audit_file_count:03d}.npz")
+            np.savez_compressed(path, **{k: v for k, v in npz.items() if v is not None})
+            self._awbc_audit_file_count += 1
+            print(f"[AWBC-AUDIT] saved: {path}")
+        except Exception as e:
+            print(f"[AWBC-AUDIT] failed to save: {e}")
 
     def log_advantage_weights(self, weights, losses):
         if not hasattr(self, 'writer') or self.writer is None:

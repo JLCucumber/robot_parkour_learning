@@ -144,6 +144,8 @@ class LeggedRobotFieldMixin:
             pos_x = self.root_states[:, 0] - self.env_origins[:, 0]
             pos_y = self.root_states[:, 1] - self.env_origins[:, 1]
             if self.check_BarrierTrack_terrain():
+                # 确保 'episode' 字段存在，避免在非 reset 步写入时报 KeyError
+                self.extras.setdefault("episode", {})
                 self.extras["episode"]["n_obstacle_passed"] = torch.mean(torch.clip(
                     torch.div(pos_x, self.terrain.env_block_length, rounding_mode= "floor") - 1,
                     min= 0.0,

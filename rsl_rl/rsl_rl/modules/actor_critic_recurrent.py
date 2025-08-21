@@ -68,8 +68,8 @@ class ActorCriticRecurrent(ActorCritic):
         self.memory_a = Memory(num_actor_obs, type=rnn_type, num_layers=rnn_num_layers, hidden_size=rnn_hidden_size)
         self.memory_c = Memory(num_critic_obs, type=rnn_type, num_layers=rnn_num_layers, hidden_size=rnn_hidden_size)
 
-        print(f"Actor RNN: {self.memory_a}")
-        print(f"Critic RNN: {self.memory_c}")
+        # print(f"Actor RNN: {self.memory_a}")
+        # print(f"Critic RNN: {self.memory_c}")
 
     def reset(self, dones=None):
         self.memory_a.reset(dones)

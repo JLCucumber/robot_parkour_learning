@@ -178,11 +178,21 @@ def main(args):
     # 统一数据根目录（用于保存采集的数据）
     data_root = getattr(custom, 'data_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data'))
 
+    # 根据任务名将数据按子目录区分：
+    # - 纯 Demonstrationr: data/<task>/...
+    # - DAgge（--load_run 存在）: data/<experiment_name>_dagger/...
+    task_subdir = args.task  # 例如 go2_distill_awbc / go2_distill_no_awbc
+    base_dataset_root = (
+        os.path.join(data_root, f"{task_subdir}_dagger")
+        if RunnerCls == DaggerSaver
+        else os.path.join(data_root, task_subdir)
+    )
+
     runner_kwargs = dict(
         env= env,
         policy= policy,
         save_dir= osp.join(
-            (data_root if RunnerCls == DaggerSaver else osp.join(data_root, f"{config['runner']['experiment_name']}_dagger")),
+            base_dataset_root,
             datetime.now().strftime('%b%d_%H-%M-%S') + "_" + "".join([
                 track_header,
                 "_lowBorder" if env_cfg.terrain.BarrierTrack_kwargs["border_height"] < 0 else "",
@@ -230,6 +240,8 @@ def main(args):
             action_sample_std= action_std,
             log_to_tensorboard= args.log,
         ))
+    print(f"[COLLECT] Saving dataset under: {runner_kwargs['save_dir']}")
+    print(f"[COLLECT] Advantage-related fields (if present) will be saved with each trajectory.")
     runner = RunnerCls(**runner_kwargs)
     runner.collect_and_save(config= config) 
 

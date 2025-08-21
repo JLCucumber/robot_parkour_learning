@@ -60,7 +60,7 @@ def build_actor_critic(env, policy_class_name, policy_cfg):
     actor_critic: ActorCritic = actor_critic_class(**policy_cfg)
 
     # Debuggings: actor_critic_class name, policy network
-    print(f"[DEBUG] [Policy Modules] class name: {actor_critic_class.__name__}")
-    print(f"[DEBUG] [Policy Modules] Policy: {actor_critic}")
+    # print(f"[DEBUG] [Policy Modules] class name: {actor_critic_class.__name__}")
+    # print(f"[DEBUG] [Policy Modules] Policy: {actor_critic}")
 
     return actor_critic

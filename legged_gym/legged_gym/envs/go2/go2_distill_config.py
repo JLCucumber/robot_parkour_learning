@@ -258,14 +258,14 @@ class Go2DistillCfgPPO( Go2FieldCfgPPO ):
 
 
         resume = True
-        load_run = osp.join(logs_root, "field_go2",
-            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
-        )
-
-        # resume = True
         # load_run = osp.join(logs_root, "field_go2",
-        #     "Jul20_16-15-23_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromJul20_00-58-51",
+        #     "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
         # )
+
+        resume = True
+        load_run = osp.join(logs_root, "field_go2",
+            "Aug19_18-16-38_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromAug19_10-32-13",
+        )
 
         # Extend previous distillation
         # resume = True

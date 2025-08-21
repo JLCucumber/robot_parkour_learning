@@ -19,10 +19,10 @@ def replace_encoder0(source_state_dict, algo_state_dict):
         if "critic_encoders.0" in key:
             new_model_state_dict[key] = source_state_dict["model_state_dict"][key]
         elif "encoders.0" in key:
-            print(
-                "key:", key,
-                "shape:", algo_state_dict["model_state_dict"][key].shape,
-                "using untrained module weights.")
+            # print(
+            #     "key:", key,
+            #     "shape:", algo_state_dict["model_state_dict"][key].shape,
+            #     "using untrained module weights.")
             new_model_state_dict[key] = algo_state_dict["model_state_dict"][key]
         else:
             new_model_state_dict[key] = source_state_dict["model_state_dict"][key]

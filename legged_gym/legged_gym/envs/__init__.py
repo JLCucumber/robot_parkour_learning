@@ -49,6 +49,7 @@ from .go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO
 from .go2.go2_field_config import Go2FieldCfg, Go2FieldCfgPPO
 from .go2.go2_distill_config import Go2DistillCfg, Go2DistillCfgPPO
 from .go2.go2_distill_config_AWBC import Go2DistillAWBCCfg, Go2DistillAWBCCfgPPO
+from .go2.go2_distill_config_no_AWBC import Go2DistillNoAWBCCfg, Go2DistillNoAWBCCfgPPO
 
 
 import os
@@ -67,6 +68,7 @@ task_registry.register( "go2", LeggedRobot, Go2RoughCfg(), Go2RoughCfgPPO() )
 task_registry.register( "go2_field", RobotFieldNoisy, Go2FieldCfg(), Go2FieldCfgPPO() )
 task_registry.register( "go2_distill", RobotFieldNoisy, Go2DistillCfg(), Go2DistillCfgPPO() )
 task_registry.register( "go2_distill_awbc", RobotFieldNoisy, Go2DistillAWBCCfg(), Go2DistillAWBCCfgPPO() )
+task_registry.register( "go2_distill_no_awbc", RobotFieldNoisy, Go2DistillNoAWBCCfg(), Go2DistillNoAWBCCfgPPO() )
 
 ## The following tasks are for the convinience of opensource
 from .a1.a1_remote_config import A1RemoteCfg, A1RemoteCfgPPO

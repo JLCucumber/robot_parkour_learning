@@ -12,6 +12,7 @@ import torch
 from rsl_rl.utils.utils import get_obs_slice
 import rsl_rl.utils.data_compresser as compresser
 from rsl_rl.storage.rollout_storage import RolloutStorage
+from isaacgym.torch_utils import get_euler_xyz
 
 class DemonstrationSaver:
     def __init__(self,
@@ -114,6 +115,10 @@ class DemonstrationSaver:
         self.transition = self.RolloutStorageCls.Transition()
         self.transition_has_timeouts = False
         self.transition_timeouts = torch.zeros(self.rollout_storage_length, self.env.num_envs, dtype= torch.bool, device= self.env.device)
+        
+        # Plan B buffers: per-step pose (world) and orientation (r,p,y) for each env
+        self.pose_pos = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
+        self.pose_rpy = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
 
     def check_stop(self):
         return (self.total_traj_completed >= self.min_episodes) \
@@ -126,6 +131,21 @@ class DemonstrationSaver:
         self.obs, self.critic_obs = self.env.get_observations(), self.env.get_privileged_observations()
 
         actions, rewards, dones, infos, n_obs, n_critic_obs, teacher_values = self.get_transition()
+
+        # Plan B: capture pose after environment step
+        try:
+            rs = self.env.root_states  # [N,13], on device
+            # Positions in world frame
+            pos = rs[:, :3].detach().to('cpu', non_blocking=True)
+            # Orientation to roll/pitch/yaw
+            quat_xyzw = rs[:, 3:7]
+            r, p, y = get_euler_xyz(quat_xyzw)
+            rpy = torch.stack([r, p, y], dim=-1).detach().to('cpu', non_blocking=True)
+            self.pose_pos[step_i] = pos
+            self.pose_rpy[step_i] = rpy
+        except Exception:
+            # Best-effort capture; continue on failure
+            pass
 
         self.build_transition(step_i, actions, rewards, dones, infos, teacher_values)
         self.add_transition(step_i, infos)
@@ -213,6 +233,24 @@ class DemonstrationSaver:
             temp_path = tmp_f.name
         
         os.rename(temp_path, traj_file)
+
+        # Plan B: save a sidecar NPZ with pose and advantages for this slice
+        try:
+            sidecar = {
+                'pos_world': self.pose_pos[step_slice, env_i].numpy(),
+                'rpy': self.pose_rpy[step_slice, env_i].numpy(),
+                'advantages': trajectory.get('advantages', None),
+                'positive_advantages': trajectory.get('positive_advantages', None),
+            }
+            sidecar = {k: v for k, v in sidecar.items() if v is not None}
+            sidecar_name = osp.splitext(final_filename)[0] + "_sidecar_pose_adv.npz"
+            sidecar_path = osp.join(traj_dir, sidecar_name)
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
+                np.savez_compressed(tmp_f, **sidecar)
+                tmp_side_path = tmp_f.name
+            os.rename(tmp_side_path, sidecar_path)
+        except Exception:
+            pass
 
         self.dumped_traj_lengths[env_i] += step_slice.stop - step_slice.start
         self.total_timesteps += step_slice.stop - step_slice.start
@@ -363,6 +401,7 @@ class DemonstrationSaver:
             'min_timesteps': self.min_timesteps,
             'min_episodes': self.min_episodes,
             'use_critic_obs': self.use_critic_obs,
+            'sidecar_pose_adv': True,
         }
         # create env-wise trajectory file handler
         os.makedirs(self.save_dir, exist_ok= True)
