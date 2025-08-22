@@ -93,9 +93,9 @@ class Go2DistillNoAWBCCfgPPO(Go2DistillCfgPPO):
             data_dir = osp.join(Go2DistillCfg.custom.data_root, "go2_distill_no_awbc")
             dataset_loops = -1
             random_shuffle_traj_order = True
-            keep_latest_n_trajs = 1000
+            keep_latest_n_trajs = 1500
             starting_frame_range = [0, 50]
 
         
-        max_iterations = 20000
+        max_iterations = 30000
         log_interval = 100

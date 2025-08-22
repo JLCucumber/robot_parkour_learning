@@ -1,11 +1,12 @@
 import os
+import re
 import torch
 import numpy as np
 import pickle
 import json
 import time
 import traceback
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 from rsl_rl.utils.collections import namedarraytuple
 import rsl_rl.utils.data_compresser as compresser
@@ -45,6 +46,10 @@ class RolloutDataset(RolloutFileBase):
         self._cumulative_transitions = 0
         self._sampled_traj_identifier_set = set()
         self._last_stat_report_iter = 0
+        # incremental scan stats
+        self._last_dir_set = set()
+        self._scan_index = 0
+        self._last_total_dirs = 0
 
     @staticmethod
     def get_frame_range(filename: str) -> tuple:
@@ -80,7 +85,9 @@ class RolloutDataset(RolloutFileBase):
             raise ValueError("data_dir should be a string or a list of strings.")
         # print("Data Directories: {}".format(self.data_dirs))
         self.all_available_trajectory_dirs = []
-        self.metadata = None # reset metadata to ensure only one metadata is used
+        # reset metadata; keep all raw metadata objects for consistency checking
+        self.metadata = None
+        self._all_metadatas = []
         metadata_repeated = False
         total_timesteps = 0
         for data_dir in self.data_dirs:
@@ -107,30 +114,123 @@ class RolloutDataset(RolloutFileBase):
                         except Exception:
                             pass
                 try:
-                    with open(os.path.join(root, "metadata.json"), "r") as f:
-                        if self.metadata is None:
-                            self.metadata = json.load(f, object_pairs_hook= OrderedDict)
-                        elif not metadata_repeated:
-                            print("RolloutDataset: multiple metadata files found, using the first one.")
-                            metadata_repeated = True
+                    meta_path = os.path.join(root, "metadata.json")
+                    if os.path.exists(meta_path):
+                        with open(meta_path, "r") as f:
+                            md = json.load(f, object_pairs_hook= OrderedDict)
+                            self._all_metadatas.append((meta_path, md))
+                            if self.metadata is None:
+                                self.metadata = md
+                            elif not metadata_repeated:
+                                # only print once; we still keep first as authoritative
+                                # print("RolloutDataset: multiple metadata files found, using the first one ({}).".format(self._all_metadatas[0][0]))
+                                metadata_repeated = True
                 except FileNotFoundError:
                     pass # skip
         self.all_available_trajectory_dirs.sort(key= lambda x: os.path.getmtime(x))
+        current_dir_set = set(self.all_available_trajectory_dirs)
+        new_dirs = current_dir_set - self._last_dir_set
+        reused_dirs = len(self.all_available_trajectory_dirs) - len(new_dirs)
+        self._scan_index += 1
         print("RolloutDataset: {} trajectories found. {} timesteps in total.".format(
             len(self.all_available_trajectory_dirs),
             total_timesteps,
         ))
+        # print(f"RolloutDataset: scan#{self._scan_index} new_dirs={len(new_dirs)} reused_dirs={reused_dirs} (prev_total={self._last_total_dirs} -> curr_total={len(self.all_available_trajectory_dirs)})")
+        # update last snapshots BEFORE trimming to latest N
+        self._last_dir_set = current_dir_set
+        self._last_total_dirs = len(self.all_available_trajectory_dirs)
+
+        # === Metadata consistency check ===
+        if len(self._all_metadatas) > 1:
+            def _fingerprint(md):
+                # focus on observation layout & compression mapping which must match
+                return json.dumps({
+                    'obs_segments': md.get('obs_segments', {}),
+                    'obs_disassemble_mapping': md.get('obs_disassemble_mapping', {}),
+                    'num_obs': md.get('num_obs'),
+                    'num_privileged_obs': md.get('num_privileged_obs'),
+                }, sort_keys=True)
+            fp0 = _fingerprint(self._all_metadatas[0][1])
+            inconsistent = []
+            for p, md in self._all_metadatas[1:]:
+                if _fingerprint(md) != fp0:
+                    inconsistent.append(p)
+            if inconsistent:
+                print("[WARNING] RolloutDataset: Found metadata.json inconsistencies in: {}".format(inconsistent))
+                print("[WARNING] Using the first metadata ONLY. Consider cleaning or unifying metadata files.")
+            else:
+                # optional verbose once
+                print("RolloutDataset: All metadata files consistent ({} files).".format(len(self._all_metadatas)))
 
         if len(self.all_available_trajectory_dirs) < self.keep_latest_n_trajs:
             return False
         else:
             self.all_available_trajectory_dirs = self.all_available_trajectory_dirs[-self.keep_latest_n_trajs:]
             self.suffixs = [d.split("trajectory_")[-1] for d in self.all_available_trajectory_dirs]
-            print(f"RolloutDataset: trajectory suffixes range: {min(self.suffixs)} - {max(self.suffixs)}, total {len(self.suffixs)} trajectories.")
+            # print(f"RolloutDataset: trajectory suffixes range: {min(self.suffixs)} - {max(self.suffixs)}, total {len(self.suffixs)} trajectories.")
+            # distribution over run roots (e.g., task/run_timestamp) to show multi-machine mixing
+            run_root_counts = defaultdict(int)
+            for d in self.all_available_trajectory_dirs:
+                rel = d.split("data/")[-1]
+                run_root = rel.split("trajectory_")[0].rstrip('/')  # e.g., go2_distill_awbc/.../Aug22_01-07-45
+                run_root_counts[run_root] += 1
+            if len(run_root_counts) > 1:
+                def _extract_ts(s: str):
+                    # Match pattern like Aug22_01-07-45
+                    m = re.search(r'[A-Z][a-z]{2}\d{2}_\d{2}-\d{2}-\d{2}', s)
+                    if m:
+                        return m.group(0)
+                    # Fallback: last path component before optional underscore details
+                    base = s.rstrip('/').split('/')[-1]
+                    return base.split('_')[0][:14]
+                dist_str = ", ".join([f"{_extract_ts(k)}:{v}" for k, v in sorted(run_root_counts.items())])
+                print(f"RolloutDataset: per-run trajectory counts (timestamps only): {dist_str}")
+
+            # === New Debug: per data collector (run root) suffix range & new trajectory ratios ===
+            # Identify newly introduced directories in THIS trimmed window compared to previous window.
+            current_window_set = set(self.all_available_trajectory_dirs)
+            prev_window_set = getattr(self, '_prev_window_set', set())
+            new_in_window = current_window_set - prev_window_set
+            reused_in_window = current_window_set & prev_window_set
+            window_new_ratio = (len(new_in_window) / len(current_window_set)) if current_window_set else 0.0
+            print(f"RolloutDataset: window incremental new trajectories: {len(new_in_window)}/{len(current_window_set)} ({window_new_ratio:.2%})  reused={len(reused_in_window)}")
+
+            # Group suffix ranges per run_root and compute new/reused stats
+            run_root_suffix_info = defaultdict(list)
+            for d in self.all_available_trajectory_dirs:
+                rel = d.split("data/")[-1]
+                run_root = rel.split("trajectory_")[0].rstrip('/')
+                try:
+                    suffix_int = int(d.split("trajectory_")[-1])
+                except Exception:
+                    suffix_int = -1
+                run_root_suffix_info[run_root].append((d, suffix_int))
+
+            print(f"RolloutDataset: detected data collector dirs: {len(run_root_suffix_info)}")
+            def _extract_ts(s: str):
+                m = re.search(r'[A-Z][a-z]{2}\d{2}_\d{2}-\d{2}-\d{2}', s)
+                if m:
+                    return m.group(0)
+                base = s.rstrip('/').split('/')[-1]
+                return base.split('_')[0][:14]
+            for run_root, items in sorted(run_root_suffix_info.items()):
+                suffix_vals = [s for _, s in items if s >= 0]
+                if suffix_vals:
+                    min_s, max_s = min(suffix_vals), max(suffix_vals)
+                else:
+                    min_s = max_s = -1
+                dirs_in_root = {p for p, _ in items}
+                new_dirs_root = dirs_in_root & new_in_window
+                new_ratio_root = (len(new_dirs_root) / len(dirs_in_root)) if dirs_in_root else 0.0
+                print(f"  - {_extract_ts(run_root)}: suffix_range={min_s}-{max_s} count={len(dirs_in_root)} new={len(new_dirs_root)} ({new_ratio_root:.2%})")
+
+            # Persist current window set for next incremental diff
+            self._prev_window_set = current_window_set
         if len(self.all_available_trajectory_dirs) > 0:
             task_names = [d.split("data/")[-1].split("_jump")[0] for d in self.all_available_trajectory_dirs]
             unique_task_names = set(task_names)
-            print("RolloutDataset: unique task names found in all available trajectories: {}".format(unique_task_names))
+            # print("RolloutDataset: unique task names found in all available trajectories: {}".format(unique_task_names))
         self.unused_trajectory_idxs = list(range(len(self.all_available_trajectory_dirs)))
         if self.random_shuffle_traj_order:
             self.unused_trajectory_idxs = np.random.permutation(self.unused_trajectory_idxs)

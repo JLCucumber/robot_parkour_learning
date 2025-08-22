@@ -76,28 +76,30 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
         experiment_name = "go2_distill_awbc"
         num_steps_per_env = 32
 
-        resume = True
+        # resume = True
         # load_run = osp.join(logs_root, "field_go2",
         #     "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
         # )
 
-        load_run = osp.join(logs_root, "field_go2",
-            "Aug19_18-16-38_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromAug19_10-32-13",
-        )
+        # load_run = osp.join(logs_root, "field_go2",
+        #     "Aug19_18-16-38_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromAug19_10-32-13",
+        # )
+
+
 
         # Extend previous distillation
-        # resume = True
-        # load_run = osp.join(logs_root, "distill_go2",
-        #     "Jul13_06-15-12_Go2_8skills_fromMay26_20-05-28",
-        # )
+        resume = True
+        load_run = osp.join(logs_root, "go2_distill_awbc",
+            "Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38",
+        )
 
         class pretrain_dataset(Go2DistillCfgPPO.runner.pretrain_dataset):
             # use base data_root resolved in Go2DistillCfg (respects env overrides)
             data_dir = osp.join(Go2DistillCfg.custom.data_root, "go2_distill_awbc")
             dataset_loops = -1
             random_shuffle_traj_order = True
-            keep_latest_n_trajs = 1000
+            keep_latest_n_trajs = 1500
             starting_frame_range = [0, 50]
 
-        max_iterations = 20000
+        max_iterations = 15000
         log_interval = 100

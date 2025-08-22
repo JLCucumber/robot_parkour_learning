@@ -120,6 +120,10 @@ class DemonstrationSaver:
         self.pose_pos = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
         self.pose_rpy = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
 
+        # Buffer for bootstrap value: value of next state after each step (V(s_{t+1}))
+        # Used to compute more accurate GAE for truncated (non-terminal) end segments.
+        self.next_values = torch.zeros(self.rollout_storage_length, self.env.num_envs, dtype=torch.float32, device=self.env.device)
+
     def check_stop(self):
         return (self.total_traj_completed >= self.min_episodes) \
             and (self.total_timesteps >= self.min_timesteps)
@@ -131,6 +135,17 @@ class DemonstrationSaver:
         self.obs, self.critic_obs = self.env.get_observations(), self.env.get_privileged_observations()
 
         actions, rewards, dones, infos, n_obs, n_critic_obs, teacher_values = self.get_transition()
+
+        # Also evaluate next state's value for bootstrap if needed (only meaningful where not done)
+        try:
+            with torch.no_grad():
+                next_critic_in = n_critic_obs if (self.use_critic_obs and n_critic_obs is not None) else n_obs
+                next_critic_in = self._sanitize_tensor(next_critic_in)
+                next_values = self.policy.evaluate(next_critic_in).view(-1)
+                self.next_values[step_i] = next_values
+        except Exception:
+            # Fallback: keep zeros; truncated segments will degrade gracefully
+            pass
 
         # Plan B: capture pose after environment step
         try:
@@ -265,25 +280,31 @@ class DemonstrationSaver:
             # Best-effort write; don't crash on shutdown
             pass
     
-    def compute_gae_advantages(self, rewards, values, dones, gamma=0.99, gae_lambda=0.95):
-        """计算 GAE 优势函数"""
+    def compute_gae_advantages(self, rewards, values, dones, last_value, gamma=0.99, gae_lambda=0.95):
+        """计算 GAE 优势函数 (含 bootstrap)
+
+        Args:
+            rewards (Tensor)[T]: r_t
+            values  (Tensor)[T]: V(s_t)
+            dones   (Tensor)[T]: 1 表示 episode 终止 (true done)，0 表示继续 (timeout 应在外部转成 0)
+            last_value (float): 对于最后一个时间步后的下一状态 V(s_{T})；若最后一步是终止应传 0。
+        Note:
+            这里使用单步 bootstrap，不再把末步一律当成终止，减少截断偏差。
+        """
+        T = len(rewards)
         advantages = torch.zeros_like(rewards)
-        gae = 0
-        
-        # 从后往前计算
-        for t in reversed(range(len(rewards))):
-            if t == len(rewards) - 1:
-                next_value = 0  # 终端状态
+        gae = 0.0
+        for t in reversed(range(T)):
+            if t == T - 1:
+                next_value = last_value  # 已按终止与否预处理
             else:
                 next_value = values[t + 1]
-            
-            # TD 误差
-            delta = rewards[t] + gamma * next_value * (1 - dones[t]) - values[t]
-            
-            # GAE 累积
-            gae = delta + gamma * gae_lambda * (1 - dones[t]) * gae
+            non_terminal = 1 - dones[t]
+            delta = rewards[t] + gamma * next_value * non_terminal - values[t]
+            gae = delta + gamma * gae_lambda * non_terminal * gae
             advantages[t] = gae
-        
+        # 数值清理
+        advantages = torch.nan_to_num(advantages, nan=0.0, posinf=1e6, neginf=-1e6)
         return advantages
     
     def wrap_up_trajectory(self, env_i, step_slice):
@@ -296,9 +317,32 @@ class DemonstrationSaver:
         rewards = self.rollout_storage.rewards[step_slice, env_i].cpu()
         dones = self.rollout_storage.dones[step_slice, env_i].cpu()
         values = self.rollout_storage.values[step_slice, env_i].cpu().squeeze(-1)
-        
-        # 计算 GAE 优势
-        advantages = self.compute_gae_advantages(rewards, values, dones)
+
+        # 终止 / 截断判定（true done）
+        last_done = bool(dones[-1].item())
+        timeout_last = False
+        if self.transition_has_timeouts:
+            try:
+                timeout_last = bool(self.transition_timeouts[step_slice.stop-1, env_i].item())
+            except Exception:
+                timeout_last = False
+
+        # 截断：末步未 true done（无论是否 rollout 切片结束）
+        truncated = not last_done
+        terminal = last_done and (not timeout_last)
+
+        # bootstrap value: 如果截断（非终止）使用 next_values；若终止 -> 0
+        # next_values 存储的是每步之后的 V(s_{t+1})，于是使用切片最后一个时间步的条目。
+        if truncated:
+            try:
+                bootstrap_value = self.next_values[step_slice.stop-1, env_i].detach().cpu().item()
+            except Exception:
+                bootstrap_value = 0.0  # 回退
+        else:
+            bootstrap_value = 0.0
+
+        # 计算 GAE 优势 (传入 bootstrap_value)
+        advantages = self.compute_gae_advantages(rewards, values, dones.squeeze(-1) if dones.ndim>1 else dones, last_value=bootstrap_value)
         
         # 计算正优势和难度分数
         positive_advantages = torch.clamp(advantages, min=0.0)
@@ -315,7 +359,10 @@ class DemonstrationSaver:
             values= self.rollout_storage.values[step_slice, env_i].cpu().numpy(),
             advantages=advantages.numpy(),                      # newly added
             positive_advantages=positive_advantages.numpy(),    # newly added
-            difficulty_scores=difficulty_scores.numpy(),
+            difficulty_scores=difficulty_scores.numpy(),        # newly added
+            bootstrap_value= bootstrap_value,                   # 用于截断优势校正
+            truncated= truncated,
+            terminal= terminal,
         )
         # compress observations components if set
         if not self.obs_disassemble_mapping is None:

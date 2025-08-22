@@ -47,7 +47,7 @@ echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-export DIR_NAME="Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
+export DIR_NAME="Aug22_21-46-35_Go2_4skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
 export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project                   #  /home/data/datasets/robot_parkour_learning or /mnt/rpl_project
 
 export TASK_NAME="go2_distill_awbc"                           # go2_distill_no_awbc or go2_distill_awbc
@@ -98,7 +98,7 @@ git ...
 cd my_projects/robot_parkour_learning/legged_gym/
 
 # Modify Here !!!
-export DIR_NAME="Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38" 
+export DIR_NAME="Aug22_21-46-35_Go2_4skills_fromAug19_18-16-38" 
 export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"    # "/mnt/rpl_project" or "/home/data/datasets/robot_parkour_learning" 
 export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
 export LEGGED_GYM_LOGS_ROOT="$COLLECT_REMAP_NEW_BASE/logs"
@@ -289,3 +289,10 @@ Works even if shared_path is off; takes highest priority.
     --log
   ```
 - 功能与 collect.py 中的 remap 开关等价；长期建议直接使用 collect.py。
+
+
+
+## Tensorboard:
+tensorboard --logdir /mnt/rpl_project/logs/go2_distill_awbc/Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38/
+
+/mnt/rpl_project/logs/go2_distill_awbc/Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38
