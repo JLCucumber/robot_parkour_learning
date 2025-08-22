@@ -23,7 +23,7 @@ from legged_gym.debugger import break_into_debugger
 
 from rsl_rl.modules import build_actor_critic
 from rsl_rl.runners.dagger_saver import DemonstrationSaver, DaggerSaver
-from typing import Optional
+from typing import Optional, Any
 # os.environ['MESA_VK_DEVICE_SELECT'] = '10de:24b0'
 # os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 # torch.cuda.set_device(1)
@@ -76,12 +76,33 @@ def maybe_patch_summarywriter(remap_old: Optional[str], remap_new: Optional[str]
         tensorboardX.SummaryWriter = PatchedSummaryWriter  # type: ignore
     except Exception:
         pass
-    # 覆盖 DaggerSaver 模块中的引用
+    # 覆盖 DaggerSaver 模块中的引用（防止其内部独立导入）
     try:
         import rsl_rl.runners.dagger_saver as _ds  # type: ignore
         _ds.SummaryWriter = PatchedSummaryWriter  # type: ignore
     except Exception:
         pass
+
+# -----------------------------
+# Pretty printing utilities
+# -----------------------------
+_USE_COLOR = os.getenv("NO_COLOR", "0").lower() not in ("1", "true", "yes")
+class _C:
+    RESET="\033[0m"; BOLD="\033[1m"; DIM="\033[2m"; ITALIC="\033[3m"; UNDERLINE="\033[4m"
+    BLACK="\033[30m"; RED="\033[31m"; GREEN="\033[32m"; YELLOW="\033[33m"; BLUE="\033[34m"; MAGENTA="\033[35m"; CYAN="\033[36m"; WHITE="\033[37m"
+    BRIGHT_BLACK="\033[90m"; BRIGHT_RED="\033[91m"; BRIGHT_GREEN="\033[92m"; BRIGHT_YELLOW="\033[93m"; BRIGHT_BLUE="\033[94m"; BRIGHT_MAGENTA="\033[95m"; BRIGHT_CYAN="\033[96m"; BRIGHT_WHITE="\033[97m"
+
+def _color(text: str, *styles: str):
+    if not _USE_COLOR:
+        return text
+    seq = ''.join(styles)
+    return f"{seq}{text}{_C.RESET}"
+
+def _section(title: str):
+    return _color(f"{title}", _C.BOLD, _C.BRIGHT_CYAN)
+
+def _kv(label: str, value: Any, color=_C.BRIGHT_WHITE):
+    return f"{_color(label + ':', _C.BOLD, color)} {value}" if isinstance(value, str) else f"{_color(label + ':', _C.BOLD, color)} {value}"
 
 def main(args):
 
@@ -97,7 +118,7 @@ def main(args):
     # 统一从配置读取根路径（Go2DistillCfg.custom 已根据 shared_path 开关选择本地或 NFS）
     custom = getattr(env_cfg, 'custom', None)
     logs_root = getattr(custom, 'logs_root', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'logs'))
-    print(f"[DEBUG] [COLLECT] Using logs_root: {logs_root}")
+    print(_kv("[COLLECT] logs_root", logs_root, _C.CYAN))
     
     # 可选：跨节点路径 remap（环境变量优先，其次 CLI）
     remap_old_env = os.getenv("COLLECT_REMAP_OLD_BASE")
@@ -117,7 +138,7 @@ def main(args):
     training_policy_log_cfg_path = osp.join(training_policy_logdir, "config.json") if args.load_run else None
 
     ### DEBUGGING
-    print("[DEBUG] [COLLECT] Using task: {}".format(args.task))
+    print(_kv("[COLLECT] task", args.task, _C.MAGENTA))
 
     # args.log = True
     # args.load_run = "Jun27_14-58-44_Go2_10skills_fromMay26_20-05-28"
@@ -125,13 +146,16 @@ def main(args):
     if RunnerCls == DaggerSaver:
         if not args.load_run:
             raise ValueError("--load_run is required for DAgger collection")
-    print("[DEBUG] [COLLECT] Loading config from: {}".format(training_policy_log_cfg_path))
-    with open(training_policy_log_cfg_path, "r") as f:
-            d = json.load(f, object_pairs_hook= OrderedDict)
-            if remap_old and remap_new:
-                d = deep_remap_paths(d, remap_old, remap_new)
-            update_class_from_dict(env_cfg, d, strict= True)
-            update_class_from_dict(train_cfg, d, strict= True)
+    if training_policy_log_cfg_path:
+        print(_kv("[COLLECT] loading config", training_policy_log_cfg_path, _C.YELLOW))
+        with open(training_policy_log_cfg_path, "r") as f:
+            d = json.load(f, object_pairs_hook=OrderedDict)
+        if remap_old and remap_new:
+            d = deep_remap_paths(d, remap_old, remap_new)
+        update_class_from_dict(env_cfg, d, strict=True)
+        update_class_from_dict(train_cfg, d, strict=True)
+    else:
+        print(_color("[COLLECT] no training policy config (Demonstration mode)", _C.BOLD, _C.BRIGHT_YELLOW))
             
     
     ####### customized option to increase data distribution #######
@@ -143,7 +167,7 @@ def main(args):
 
     env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 30
 
-    print("[DEBUG] [COLLECT] Number of Envs: {}".format(env_cfg.env.num_envs))
+    print(_kv("[COLLECT] num_envs", str(env_cfg.env.num_envs), _C.GREEN))
     # Done custom settings
 
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -162,16 +186,23 @@ def main(args):
     ).to(env.device)
 
     # load the teacher policy
-    if config["algorithm"]["teacher_ac_path"] is not None:
+    teacher_path = None
+    if config["algorithm"].get("teacher_ac_path"):
         teacher_path = config["algorithm"]["teacher_ac_path"]
         if "{LEGGED_GYM_ROOT_DIR}" in teacher_path:
-            teacher_path = teacher_path.format(LEGGED_GYM_ROOT_DIR= LEGGED_GYM_ROOT_DIR)
+            teacher_path = teacher_path.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)
         if remap_old and remap_new:
             teacher_path = teacher_path.replace(remap_old, remap_new)
-        print("teacher ac path: ", teacher_path)
-        state_dict = torch.load(teacher_path, map_location= "cpu")
-        teacher_actor_critic_state_dict = state_dict["model_state_dict"]
-        policy.load_state_dict(teacher_actor_critic_state_dict)
+        print(_kv("[COLLECT] teacher_ac_path", teacher_path, _C.BRIGHT_BLUE))
+        try:
+            state_dict = torch.load(teacher_path, map_location="cpu")
+            teacher_actor_critic_state_dict = state_dict["model_state_dict"]
+            policy.load_state_dict(teacher_actor_critic_state_dict)
+            print(_color("[COLLECT] teacher weights loaded", _C.GREEN, _C.BOLD))
+        except Exception as e:
+            print(_color(f"[COLLECT][WARN] Failed to load teacher weights: {e}", _C.BOLD, _C.BRIGHT_RED))
+    else:
+        print(_color("[COLLECT] no teacher_ac_path provided", _C.BRIGHT_YELLOW))
 
     # build runner
     track_header = "".join(env_cfg.terrain.BarrierTrack_kwargs["options"])
@@ -227,21 +258,20 @@ def main(args):
     )
     if RunnerCls == DaggerSaver:
         # kwargs for dagger saver
-        # a bunch of debugs: "DAGGER_SAVER", training_policy_logdir, teacher_act_prob, action_sample_std
-        print(f"[DEBUG] [DAGGER_SAVER] Using training policy logdir: {training_policy_logdir}")
-        print(f"[DEBUG] [DAGGER_SAVER] Using teacher action probability: {teacher_act_prob}")
-        print(f"[DEBUG] [DAGGER_SAVER] Using update times scale: {config['algorithm'].get('update_times_scale', 1e5)}")
-        print(f"[DEBUG] [DAGGER_SAVER] Using action sample std: {action_std}")
-
+        print(_section("[DAGGER_SAVER]"), _color("init", _C.BRIGHT_YELLOW))
+        print(_kv("  training_policy_logdir", training_policy_logdir, _C.BRIGHT_YELLOW))
+        print(_kv("  teacher_act_prob", teacher_act_prob, _C.BRIGHT_YELLOW))
+        print(_kv("  update_times_scale", config['algorithm'].get('update_times_scale', 1e5), _C.BRIGHT_YELLOW))
+        print(_kv("  action_sample_std", action_std, _C.BRIGHT_YELLOW))
         runner_kwargs.update(dict(
-            training_policy_logdir= training_policy_logdir,    
-            teacher_act_prob= teacher_act_prob,
-            update_times_scale= config["algorithm"].get("update_times_scale", 1e5),
-            action_sample_std= action_std,
-            log_to_tensorboard= args.log,
+            training_policy_logdir=training_policy_logdir,
+            teacher_act_prob=teacher_act_prob,
+            update_times_scale=config["algorithm"].get("update_times_scale", 1e5),
+            action_sample_std=action_std,
+            log_to_tensorboard=args.log,
         ))
-    print(f"[COLLECT] Saving dataset under: {runner_kwargs['save_dir']}")
-    print(f"[COLLECT] Advantage-related fields (if present) will be saved with each trajectory.")
+    print(_section("[COLLECT] save_dir"), _color(runner_kwargs['save_dir'], _C.BRIGHT_GREEN))
+    print(_color("[COLLECT] Advantage fields will be included when available.", _C.BOLD, _C.BRIGHT_WHITE))
     runner = RunnerCls(**runner_kwargs)
     runner.collect_and_save(config= config) 
 

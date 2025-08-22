@@ -16,15 +16,29 @@ multi_process_ = True
 # 模块级别的路径配置，供所有类使用
 _shared_path_enabled = os.getenv("LEGGED_GYM_USE_SHARED_PATH", "0").lower() in ("1", "true", "yes")
 _shared_root = os.getenv("LEGGED_GYM_SHARED_PATH") or os.getenv("LEGGED_GYM_NFS_PATH") or "/mnt/rpl_project"
+if _shared_root != "/":
+    _shared_root = _shared_root.rstrip("/")
 _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # 模块级别的 logs_root 和 data_root
-logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT") or (
-    os.path.join(_shared_root, "logs") if _shared_path_enabled else os.path.join(_repo_root, "logs")
-)
-data_root = os.getenv("LEGGED_GYM_DATA_ROOT") or (
-    os.path.join(_shared_root, "data") if _shared_path_enabled else os.path.join(_repo_root, "data")
-)
+_env_logs_root = os.getenv("LEGGED_GYM_LOGS_ROOT")
+_env_data_root = os.getenv("LEGGED_GYM_DATA_ROOT")
+
+def _norm(p: str) -> str:
+    try:
+        return os.path.normpath(p)
+    except Exception:
+        return p
+
+if _env_logs_root:
+    logs_root = _norm(_env_logs_root)
+else:
+    logs_root = _norm(os.path.join(_shared_root, "logs") if _shared_path_enabled else os.path.join(_repo_root, "logs"))
+
+if _env_data_root:
+    data_root = _norm(_env_data_root)
+else:
+    data_root = _norm(os.path.join(_shared_root, "data") if _shared_path_enabled else os.path.join(_repo_root, "data"))
 
 # NOTE: This config intentionally disables AW-BC (advantage-weighted BC)
 class Go2DistillNoAWBCCfg(Go2DistillCfg):
