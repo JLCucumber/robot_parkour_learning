@@ -235,6 +235,10 @@ class LeggedRobotFieldMixin:
     def _init_buffers(self):
         super()._init_buffers()
 
+        # internal counters (avoid relying on potentially non-existent self.clock attribute)
+        if not hasattr(self, '_terrain_reset_counter'):
+            self._terrain_reset_counter = 0  # counts how many global resets (all envs) have occurred
+
         # projected gravity bias (if needed)
         if getattr(self.cfg.domain_rand, "randomize_gravity_bias", False):
             print("Initializing gravity bias for domain randomization")
@@ -266,7 +270,12 @@ class LeggedRobotFieldMixin:
             self._terrain_debug_printed = True
         # 统计当前 engaging block 类型分布（可选，避免频繁打印）
         if getattr(self.cfg, 'terrain', None) and getattr(self.cfg.terrain, 'BarrierTrack_kwargs', None):
-            if not hasattr(self, '_last_terrain_log_step') or (self.clock in (0, 1)):
+            # use our own reset counter instead of a possibly missing self.clock
+            is_global_reset = len(env_ids) == getattr(self, 'num_envs', len(env_ids))
+            if is_global_reset:
+                # only increment on global resets to keep semantics predictable
+                self._terrain_reset_counter += 1
+            if not hasattr(self, '_last_terrain_log_step') or (self._terrain_reset_counter <= 2 and is_global_reset):
                 try:
                     engaging_types = self.terrain.get_engaging_block_types(self.root_states[:, :3])
                     unique_ids, counts = torch.unique(engaging_types, return_counts=True)
@@ -276,7 +285,7 @@ class LeggedRobotFieldMixin:
                     print(f"[Terrain] Engaging obstacle distribution: {dist_str}")
                 except Exception:
                     pass
-                self._last_terrain_log_step = getattr(self, 'clock', 0)
+                self._last_terrain_log_step = self._terrain_reset_counter
 
         if getattr(self.cfg.domain_rand, "randomize_gravity_bias", False):
             assert hasattr(self, "gravity_bias")

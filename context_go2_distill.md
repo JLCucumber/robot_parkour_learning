@@ -47,7 +47,7 @@ echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-export DIR_NAME="Aug21_19-28-28_Go2_9skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
+export DIR_NAME="Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
 export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project                   #  /home/data/datasets/robot_parkour_learning or /mnt/rpl_project
 
 export TASK_NAME="go2_distill_awbc"                           # go2_distill_no_awbc or go2_distill_awbc
@@ -98,7 +98,7 @@ git ...
 cd my_projects/robot_parkour_learning/legged_gym/
 
 # Modify Here !!!
-export DIR_NAME="Aug21_19-28-28_Go2_9skills_fromAug19_18-16-38" 
+export DIR_NAME="Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38" 
 export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"    # "/mnt/rpl_project" or "/home/data/datasets/robot_parkour_learning" 
 export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
 export LEGGED_GYM_LOGS_ROOT="$COLLECT_REMAP_NEW_BASE/logs"
