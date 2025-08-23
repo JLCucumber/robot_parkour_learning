@@ -274,6 +274,7 @@ class RolloutDataset(RolloutFileBase):
         """ refresh `self.traj_data` based on current traj_file_idxs[env_idx]. usually called
         after refreshing traj_handler or updated traj_file_idxs[env_idx]
         with retry mechanism to handle potential file read errors.
+        Returns True if successful, False if failed.
         """
         traj_dir = self.all_available_trajectory_dirs[self.traj_identifiers[env_idx]]
         traj_filename = self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]]
@@ -296,25 +297,23 @@ class RolloutDataset(RolloutFileBase):
                     break  # Successfully loaded, exit loop
             except EOFError:
                 print(f"[Attempt {attempt}] Caught EOFError, file might still be writing: {traj_path}")
-            except Exception:
-                traceback.print_exc()
-                print(f"[Attempt {attempt}] Other error occurred, retrying: {traj_path}")
-
+            except Exception as e:
+                print(f"[Attempt {attempt}] Error loading {traj_path}: {type(e).__name__}: {e}")
+                # 对于 pickle 截断错误，不要无限重试
+                if "truncated" i`n str(e).lower() or "UnpicklingError" in str(type(e).__name__):
+                    print(f"[RolloutDataset] Skipping corrupted file (pickle truncated): {traj_path}")
+                    # 标记这个文件为损坏，跳过到下一个文件
+                    self._skip_corrupted_file(env_idx)
+                    return False  # 返回失败
+                
             time.sleep(delay)
         else:
-            raise RuntimeError(f"[RolloutDataset] Failed to load trajectory file after multiple attempts: {traj_path}")
+            print(f"[RolloutDataset] Failed to load trajectory file after {retries} attempts: {traj_path}")
+            # 尝试跳过损坏的文件而不是崩溃
+            self._skip_corrupted_file(env_idx)
+            return False
 
-
-        # try:
-        #     with open(os.path.join(traj_dir, self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]]), "rb") as f:
-        #         traj_data = pickle.load(f)
-        # except:
-        #     traceback.print_exc()
-        #     raise RuntimeError("RolloutDataset: failed to load trajectory data from {}".format(
-        #         os.path.join(traj_dir, self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])
-        #     ))
-        
-
+        # 到这里说明成功加载了文件
         if "obs_disassemble_mapping" in self.metadata.keys():
             traj_data = self.assemble_obs_components(traj_data)
 
@@ -326,8 +325,36 @@ class RolloutDataset(RolloutFileBase):
 
 
         for k, v in traj_data.items():
-            traj_data[k] = torch.from_numpy(v).to(self.device)
+            if isinstance(v, np.ndarray):
+                traj_data[k] = torch.from_numpy(v).to(self.device)
+            # 保留非numpy数组的元数据（如标量值）
         self.traj_datas[env_idx] = traj_data
+        return True  # 成功加载
+
+    def _skip_corrupted_file(self, env_idx):
+        """跳过损坏的文件，尝试加载下一个文件或下一个轨迹"""
+        print(f"[RolloutDataset] Attempting to skip corrupted file for env {env_idx}")
+        
+        # 尝试移动到下一个文件
+        if self.traj_file_idxs[env_idx] + 1 < len(self.traj_file_names[env_idx]):
+            self.traj_file_idxs[env_idx] += 1
+            print(f"[RolloutDataset] Moving to next file: {self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]]}")
+            if self._refresh_traj_data(env_idx):  # 使用返回值检查是否成功
+                return  # 成功加载下一个文件
+            else:
+                print(f"[RolloutDataset] Next file also corrupted, trying to refresh trajectory...")
+        
+        # 如果当前轨迹的所有文件都有问题，尝试切换到新轨迹
+        print(f"[RolloutDataset] Switching to new trajectory for env {env_idx}")
+        if len(self.unused_trajectory_idxs) > 0:
+            # 分配新轨迹
+            self.traj_identifiers[env_idx] = self.unused_trajectory_idxs.pop(0)
+            self._refresh_traj_handler(env_idx)
+        else:
+            # 如果没有未使用的轨迹，随机选择一个
+            import random
+            self.traj_identifiers[env_idx] = random.randint(0, len(self.all_available_trajectory_dirs) - 1)
+            self._refresh_traj_handler(env_idx)
 
     def _refresh_traj_handler(self, env_idx):
         """ update traj_handler for the given env and load the first traj_data. It does not update
@@ -349,7 +376,9 @@ class RolloutDataset(RolloutFileBase):
             or self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])[1] <= self.traj_cursors[env_idx]):
             self.traj_file_idxs[env_idx] += 1 \
                 if self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])[1] <= self.traj_cursors[env_idx] else -1
-        self._refresh_traj_data(env_idx)
+        if not self._refresh_traj_data(env_idx):
+            # 如果加载失败，_refresh_traj_data 内部已经处理了跳过逻辑
+            print(f"[RolloutDataset] Failed to load trajectory data for env {env_idx}, but handled gracefully")
         self.traj_datas[env_idx]["dones"][0] = True # set the first frame as done
 
     def refresh_handlers(self, env_ids= None):
@@ -400,7 +429,9 @@ class RolloutDataset(RolloutFileBase):
 
                 # load new traj_data from the same trajectory
                 self.traj_file_idxs[env_idx] += 1
-                self._refresh_traj_data(env_idx)
+                if not self._refresh_traj_data(env_idx):
+                    # 如果加载失败，_refresh_traj_data 内部已经处理了跳过逻辑
+                    print(f"[RolloutDataset] Failed to load next trajectory file for env {env_idx}, but handled gracefully")
                 return False  
             
         except StopIteration:

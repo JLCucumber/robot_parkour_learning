@@ -24,7 +24,7 @@ if [[ -n "${LOCAL_DIR:-}" ]]; then
 elif [[ -n "$LOCAL_LOG_DIR" && -n "$DIR_NAME" ]]; then
   LOCAL_DIR_DEFAULT="${LOCAL_LOG_DIR%/}/$DIR_NAME/"
 elif [[ -n "$LOCAL_LOG_DIR" ]]; then
-  LOCAL_DIR_DEFAULT="${LOCAL_LOG_DIR%/}/"
+  LOCAL_DIR_DEFAULT="${LOCAL_LOG_DIR%/}"
 else
   # raise error
   echo -e "${RED}[ERROR] Local log directory is not set${NC}"

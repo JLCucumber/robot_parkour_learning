@@ -111,5 +111,5 @@ class Go2DistillNoAWBCCfgPPO(Go2DistillCfgPPO):
             starting_frame_range = [0, 50]
 
         
-        max_iterations = 30000
+        max_iterations = 40000
         log_interval = 100

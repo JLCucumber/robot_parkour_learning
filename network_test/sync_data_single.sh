@@ -17,10 +17,12 @@ LOCAL_DIR_DEFAULT=""
 REMOTE_DIR_DEFAULT=""
 
 # 远端（C）数据目录作为源
-if [[ -n "${REMOTE_DIR:-}" ]]; then
-  REMOTE_DIR_DEFAULT="$REMOTE_DIR"
-elif [[ -n "$REMOTE_DATA_DIR" ]]; then
-  REMOTE_DIR_DEFAULT="${REMOTE_DATA_DIR%/}/"
+# if [[ -n "${REMOTE_DIR:-}" ]]; then
+#   REMOTE_DIR_DEFAULT="$REMOTE_DIR"
+# el
+
+if [[ -n "$REMOTE_DATA_DIR" ]]; then
+  REMOTE_DIR_DEFAULT="${REMOTE_DATA_DIR%/}"
 else
   echo -e "${RED}[ERROR] Remote data directory is not set${NC}"
   exit 1

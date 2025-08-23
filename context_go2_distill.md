@@ -27,8 +27,12 @@ python legged_gym/scripts/train.py --task go2_distill_no_awbc --headless
 
 # Option 2: local training (using in-project log dir)
 export LEGGED_GYM_USE_SHARED_PATH=0
-python legged_gym/scripts/train.py --task go2_distill --headless
+python legged_gym/scripts/train.py --task go2_distill_awbc --headless
+python legged_gym/scripts/train.py --task go2_distill_no_awbc --headless
 ```
+
+
+
 
 ### Push logs to C (run on A) && Pull data back to A
 ```bash
@@ -47,16 +51,13 @@ echo $RSYNC_DRYRUN
 
 cd /home/data/projects/robot_parkour_learning/legged_gym
 
-export DIR_NAME="Aug22_21-46-35_Go2_4skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
+export DIR_NAME="Aug23_01-25-43_Go2_4skills_fromAug19_18-16-38"  # <<< modify here every time before training !!!
 export LEGGED_GYM_SHARED_PATH=/mnt/rpl_project                   #  /home/data/datasets/robot_parkour_learning or /mnt/rpl_project
-
-export TASK_NAME="go2_distill_awbc"                           # go2_distill_no_awbc or go2_distill_awbc
-
+export TASK_NAME="go2_distill_no_awbc"                           # go2_distill_no_awbc or go2_distill_awbc <<< modify
 export LOCAL_DATA_DIR="$LEGGED_GYM_SHARED_PATH/data/$TASK_NAME/"  
 export LOCAL_LOG_DIR="$LEGGED_GYM_SHARED_PATH/logs/$TASK_NAME/"  
-
 export REMOTE_LOG_DIR="hongboli@ucl-kup:/cs/student/projects2/rai/2024/hongboli/network_test/logs/$TASK_NAME/"   
-export REMOTE_DATA_DIR="hongboli@ucl-kup:/cs/student/projects2/rai/2024/hongboli/network_test/data/$TASK_NAME_dagger/"
+export REMOTE_DATA_DIR="hongboli@ucl-kup:/cs/student/projects2/rai/2024/hongboli/network_test/data/${TASK_NAME}_dagger/"          # <<< modify!
 
 cd ../network_test
 ./sync_loop.sh
@@ -81,31 +82,27 @@ mamba activate /cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parko
 // python test_gui.py
 
 ## Step 2
-
 ### Option 1
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
 export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
-
 ### Option 2
 export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
 export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
 
-
-## Step 3
-cd my_projects/robot_parkour_learning
-git ...
-
 cd my_projects/robot_parkour_learning/legged_gym/
 
 # Modify Here !!!
-export DIR_NAME="Aug22_21-46-35_Go2_4skills_fromAug19_18-16-38" 
+# export DIR_NAME="Aug22_21-46-35_Go2_4skills_fromAug19_18-16-38"  # awbc
+export DIR_NAME="Aug23_01-25-43_Go2_4skills_fromAug19_18-16-38"  # no awbc
 export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"    # "/mnt/rpl_project" or "/home/data/datasets/robot_parkour_learning" 
 export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
 export LEGGED_GYM_LOGS_ROOT="$COLLECT_REMAP_NEW_BASE/logs"
 export LEGGED_GYM_DATA_ROOT="$COLLECT_REMAP_NEW_BASE/data"
 
 # Collect Trajectory
-python legged_gym/scripts/collect.py --headless --task go2_distill_awbc --log --load_run $DIR_NAME --log
+# python legged_gym/scripts/collect.py --headless --task go2_distill_awbc --log --load_run $DIR_NAME --log
+
+python legged_gym/scripts/collect.py --headless --task go2_distill_no_awbc --log --load_run $DIR_NAME --log
 
 # 
 python legged_gym/scripts/train.py --headless --task go2_field 
@@ -296,3 +293,132 @@ Works even if shared_path is off; takes highest priority.
 tensorboard --logdir /mnt/rpl_project/logs/go2_distill_awbc/Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38/
 
 /mnt/rpl_project/logs/go2_distill_awbc/Aug22_00-56-05_Go2_4skills_fromAug19_18-16-38
+
+
+# Experimental: Local Training + Collecting on UCL's machine
+
+## Trainer: (3090 or 4090)
+```bash
+tmux new -s train bash
+tmux attach -t train
+
+nvidia-smi
+cd /cs/student/projects2/rai/2024/hongboli
+mamba activate /cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour
+
+### Option 1
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+### Option 2
+export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+
+cd my_projects/robot_parkour_learning/legged_gym/
+
+export LEGGED_GYM_USE_SHARED_PATH=1
+export LEGGED_GYM_SHARED_PATH=/cs/student/projects2/rai/2024/hongboli/network_test/
+python legged_gym/scripts/train.py --task go2_distill_awbc --headless
+
+
+```
+
+## Collector: 
+
+```bash
+
+## Step 1
+
+tmux new -s collect bash
+or
+tmux attach -t collect 
+
+nvidia-smi
+cd /cs/student/projects2/rai/2024/hongboli
+mamba activate /cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour
+
+// python test_gui.py
+
+## Step 2
+
+### Option 1
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+### Option 2 (try this first)
+ls /etc/vulkan/icd.d/nvi
+export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+## Step 3
+cd my_projects/robot_parkour_learning/legged_gym/
+
+# Modify Here !!!
+export DIR_NAME="Aug22_22-38-00_Go2_4skills_fromAug19_18-16-38" 
+export LEGGED_GYM_SHARED_PATH=/cs/student/projects2/rai/2024/hongboli/network_test
+export LEGGED_GYM_LOGS_ROOT="$LEGGED_GYM_SHARED_PATH/logs"
+export LEGGED_GYM_DATA_ROOT="$LEGGED_GYM_SHARED_PATH/data"
+
+# Collect Trajectory
+python legged_gym/scripts/collect.py --headless --task go2_distill_awbc --log --load_run $DIR_NAME --log
+python legged_gym/scripts/collect.py --headless --task go2_distill_no_awbc --log --load_run $DIR_NAME --log
+
+
+
+# export COLLECT_REMAP_OLD_BASE="/mnt/rpl_project"    # "/mnt/rpl_project" or "/home/data/datasets/robot_parkour_learning" 
+# export COLLECT_REMAP_NEW_BASE="/cs/student/projects2/rai/2024/hongboli/network_test"
+
+```
+
+
+
+
+### Experimental: Training on Chinese remote server
+```bash
+
+tmux new -s train bash
+tmux attach -t train
+
+conda activate isaac_gym_parkour
+cd /home/vipuser/projects/robot_parkour_learning/legged_gym
+
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
+
+
+echo $LEGGED_GYM_USE_SHARED_PATH
+echo $LEGGED_GYM_SHARED_PATH
+unset LEGGED_GYM_USE_SHARED_PATH LEGGED_GYM_SHARED_PATH
+
+# Option 1: multi-node training 
+export LEGGED_GYM_USE_SHARED_PATH=1
+export LEGGED_GYM_SHARED_PATH=/home/vipuser/projects/datasets/robot_parkour_learning
+
+python legged_gym/scripts/train.py --task go2_distill_awbc --headless
+python legged_gym/scripts/train.py --task go2_distill_no_awbc --headless
+
+# Option 2: local training (using in-project log dir)
+export LEGGED_GYM_USE_SHARED_PATH=0
+python legged_gym/scripts/train.py --task go2_distill_awbc --headless
+python legged_gym/scripts/train.py --task go2_distill_no_awbc --headless
+
+
+
+
+tmux new -s train bash
+tmux attach -t train
+
+### Option 1
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+### Option 2
+export VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json
+export LD_LIBRARY_PATH=/cs/student/projects2/rai/2024/hongboli/mamba_envs/isaacgym_parkour/lib
+
+
+cd my_projects/robot_parkour_learning/legged_gym/
+
+export LEGGED_GYM_USE_SHARED_PATH=1
+export LEGGED_GYM_SHARED_PATH=/cs/student/projects2/rai/2024/hongboli/network_test/
+python legged_gym/scripts/train.py --task go2_distill_awbc --headless
+```
