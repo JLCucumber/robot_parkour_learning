@@ -307,7 +307,6 @@ class TPPO(PPO):
         if getattr(self, 'awbc_weighting', True) and hasattr(minibatch, 'positive_advantages') and minibatch.positive_advantages is not None:
             
             # DEBUG print
-            
             advantage_weights = self.compute_advantage_weights(minibatch.positive_advantages)
             final_dist_loss = (dist_loss * advantage_weights).mean()
             if hasattr(self, 'writer') and self.writer is not None:
@@ -329,6 +328,7 @@ class TPPO(PPO):
             # print(f"[DEBUG] [TPPO] Enable AW-BC")
             # print(f"[DEBUG] [TPPO] Advantage weights: {advantage_weights.mean():.4f}")
             # print(f"[DEBUG] [TPPO] High weight ratio: {(advantage_weights > 0.7).float().mean():.4f}")
+
             # Plan A: export a small sample for offline inspection
             self._maybe_awbc_audit(minibatch, advantage_weights, dist_loss)
             

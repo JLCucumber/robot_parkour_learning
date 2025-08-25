@@ -235,6 +235,9 @@ class DemonstrationSaver:
         traj_idx = self.traj_idxs[env_i]
         traj_dir = osp.join(self.save_dir, f"trajectory_{traj_idx}")
 
+        # 确保轨迹目录存在
+        os.makedirs(traj_dir, exist_ok=True)
+
         final_filename = f"traj_{self.dumped_traj_lengths[env_i]:06d}_{self.dumped_traj_lengths[env_i]+step_slice.stop-step_slice.start:06d}.pickle"
         traj_file = osp.join(traj_dir, final_filename)
 
@@ -408,9 +411,16 @@ class DemonstrationSaver:
 
         # update the handlers to a new trajectory
         # Also, skip the trajectory directory that has data collected before this run.
-        while len(os.listdir(osp.join(self.save_dir, f"trajectory_{traj_idx}"))) > 0:
-            traj_idx = max(self.traj_idxs) + 1
-            os.makedirs(osp.join(self.save_dir, f"trajectory_{traj_idx}"), exist_ok= True)
+        while True:
+            traj_dir_check = osp.join(self.save_dir, f"trajectory_{traj_idx}")
+            if not os.path.exists(traj_dir_check):
+                os.makedirs(traj_dir_check, exist_ok=True)
+                break
+            elif len(os.listdir(traj_dir_check)) == 0:
+                break
+            else:
+                traj_idx = max(self.traj_idxs) + 1
+                os.makedirs(osp.join(self.save_dir, f"trajectory_{traj_idx}"), exist_ok=True)
         self.traj_idxs[env_i] = traj_idx
         self.total_traj_completed += 1
         self.dumped_traj_lengths[env_i] = 0

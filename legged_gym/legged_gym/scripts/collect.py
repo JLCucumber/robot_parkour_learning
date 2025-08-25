@@ -159,7 +159,7 @@ def main(args):
             
     
     ####### customized option to increase data distribution #######
-    # env_cfg.env.num_envs = 6
+    # env_cfg.env.num_envs = 6      # << modify here for quick run
     # env_cfg.terrain.curriculum = True
     # env_cfg.terrain.max_init_terrain_level = 0
     # env_cfg.terrain.border_size = 1.

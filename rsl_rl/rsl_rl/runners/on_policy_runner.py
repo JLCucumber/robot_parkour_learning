@@ -142,12 +142,14 @@ class OnPolicyRunner:
             if self.log_dir is not None and self.current_learning_iteration % self.log_interval == 0:
                 self.log(locals())
             if self.current_learning_iteration % self.save_interval == 0 and self.current_learning_iteration > start_iter:
-                self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
+                if self.log_dir is not None:
+                    self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
             ep_infos.clear()
             self.current_learning_iteration = self.current_learning_iteration + 1
             start = time.time()
         
-        self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
+        if self.log_dir is not None:
+            self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
 
     def rollout_step(self, obs, critic_obs):
         actions = self.alg.act(obs, critic_obs)
@@ -280,12 +282,52 @@ class OnPolicyRunner:
         print(log_string)
 
     def save(self, path, infos=None):
+        import tempfile
+        import shutil
+        
         run_state_dict = self.alg.state_dict()
         run_state_dict.update({
             'iter': self.current_learning_iteration,
             'infos': infos,
         })
-        torch.save(run_state_dict, path)
+        
+        # 确保目标目录存在
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        # 使用临时文件安全保存，避免写入过程中的文件损坏
+        max_retries = 3
+        for attempt in range(max_retries):
+            temp_path = None
+            try:
+                # 创建临时文件
+                temp_dir = os.path.dirname(path)
+                with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False, suffix='.pt.tmp') as temp_file:
+                    temp_path = temp_file.name
+                
+                # 保存到临时文件
+                torch.save(run_state_dict, temp_path)
+                
+                # 原子性移动（重命名）到目标位置
+                shutil.move(temp_path, path)
+                print(f"✅ Model successfully saved to {path}")
+                break
+                
+            except Exception as e:
+                print(f"⚠️ Save attempt {attempt + 1}/{max_retries} failed: {e}")
+                
+                # 清理可能存在的临时文件
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+                
+                if attempt == max_retries - 1:
+                    print(f"❌ Failed to save model after {max_retries} attempts")
+                    raise
+                else:
+                    print(f"🔄 Retrying in 2 seconds...")
+                    time.sleep(2)
 
     def load(self, path, load_optimizer=True):
         print(f"\033[1;36m Loaded model from {path} at iteration {self.current_learning_iteration} \033[0m")
@@ -305,7 +347,8 @@ class OnPolicyRunner:
         
         if self.cfg.get("ckpt_manipulator", False):
             try:
-                self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
+                if self.log_dir is not None:
+                    self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(self.current_learning_iteration)))
             except:
                 print("\033[1;36m Save manipulated checkpoint failed, ignored... \033[0m")
         return loaded_dict['infos']

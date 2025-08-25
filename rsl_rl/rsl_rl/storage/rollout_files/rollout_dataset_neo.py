@@ -120,66 +120,6 @@ class RolloutDataset(RolloutFileBase):
                 
         return TimingContext(self, operation_name)
     
-    def _extract_task_name_suffix(self):
-        """
-        🏷️ 从数据目录路径中智能提取任务名称后缀
-        保留足够信息来区分不同任务，特别是 distill 类任务
-        
-        Returns:
-            str: 格式化的任务后缀，如 "_go2_distill_awbc" 或空字符串
-        """
-        task_suffix = ""
-        if hasattr(self, 'data_dir') and self.data_dir:
-            try:
-                # 从数据目录路径中提取任务名称
-                data_path = self.data_dir[0] if isinstance(self.data_dir, (list, tuple)) else self.data_dir
-                # 查找包含任务名的部分，通常在 "data/" 之后
-                if "data/" in data_path:
-                    path_after_data = data_path.split("data/")[-1]
-                    # 🎯 提取完整的任务名，保留关键区分信息
-                    task_path_parts = path_after_data.split("/")[0]  # 第一个路径段
-                    
-                    # 智能提取任务名：保留足够信息来区分不同任务
-                    if "_distill_" in task_path_parts:
-                        # 对于包含 distill 的任务，保留完整的区分信息
-                        # 例如：go2_distill_awbc, go2_distill_no_awbc
-                        task_name = task_path_parts
-                    elif "_" in task_path_parts:
-                        # 对于其他任务，根据模式智能截取
-                        parts = task_path_parts.split("_")
-                        if len(parts) >= 3:
-                            # 保留前3个部分，通常足以区分任务
-                            task_name = "_".join(parts[:3])
-                        elif len(parts) == 2:
-                            # 保留完整的两部分名称
-                            task_name = task_path_parts
-                        else:
-                            # 单一名称，直接使用
-                            task_name = parts[0]
-                    else:
-                        # 没有下划线，直接使用
-                        task_name = task_path_parts
-                    
-                    # 清理任务名：移除时间戳等后缀
-                    # 匹配常见的时间戳模式（如 Aug22_01-07-45）
-                    import re
-                    task_name = re.sub(r'[A-Z][a-z]{2}\d{2}_\d{2}-\d{2}-\d{2}.*$', '', task_name)
-                    task_name = task_name.rstrip('_')
-                    
-                    if task_name and len(task_name) > 0:
-                        task_suffix = f"_{task_name}"
-                else:
-                    # 备用方案：使用目录名的最后一段
-                    dir_name = os.path.basename(data_path.rstrip('/'))
-                    if dir_name and dir_name != 'data':
-                        task_suffix = f"_{dir_name}"
-            except (IndexError, AttributeError):
-                # 如果提取失败，使用时间戳作为后缀
-                import time
-                task_suffix = f"_{int(time.time())}"
-        
-        return task_suffix
-    
     def _print_timing_report(self, force=False, show_in_terminal=False, save_to_log=True, log_file_path=None):
         """
         打印和记录性能统计信息
@@ -213,8 +153,27 @@ class RolloutDataset(RolloutFileBase):
                 log_dir = os.path.join(os.path.dirname(self.data_dir[0] if isinstance(self.data_dir, (list, tuple)) else self.data_dir), 'logs') if hasattr(self, 'data_dir') else './logs'
                 os.makedirs(log_dir, exist_ok=True)
                 
-                # 🏷️ 使用统一的任务名提取方法
-                task_suffix = self._extract_task_name_suffix()
+                # 🏷️ 生成任务特定的日志文件名后缀
+                task_suffix = ""
+                if hasattr(self, 'data_dir') and self.data_dir:
+                    try:
+                        # 从数据目录路径中提取任务名称
+                        data_path = self.data_dir[0] if isinstance(self.data_dir, (list, tuple)) else self.data_dir
+                        # 查找包含任务名的部分，通常在 "data/" 之后
+                        if "data/" in data_path:
+                            path_after_data = data_path.split("data/")[-1]
+                            # 提取任务名（第一个下划线前的部分，或整个路径段）
+                            task_name = path_after_data.split("/")[0].split("_")[0]
+                            if task_name and len(task_name) > 0:
+                                task_suffix = f"_{task_name}"
+                        else:
+                            # 备用方案：使用目录名的最后一段
+                            dir_name = os.path.basename(data_path.rstrip('/'))
+                            if dir_name and dir_name != 'data':
+                                task_suffix = f"_{dir_name}"
+                    except (IndexError, AttributeError):
+                        # 如果提取失败，使用时间戳作为后缀
+                        task_suffix = f"_{int(time.time())}"
                 
                 log_file = os.path.join(log_dir, f'rollout_performance{task_suffix}.log')
             
@@ -328,8 +287,29 @@ class RolloutDataset(RolloutFileBase):
         """
         # 设置默认日志文件路径，包含任务后缀
         if log_file_path is None:
-            # 🏷️ 使用统一的任务名提取方法
-            task_suffix = self._extract_task_name_suffix()
+            # 🏷️ 生成任务特定的默认日志文件名
+            task_suffix = ""
+            if hasattr(self, 'data_dir') and self.data_dir:
+                try:
+                    # 从数据目录路径中提取任务名称
+                    data_path = self.data_dir[0] if isinstance(self.data_dir, (list, tuple)) else self.data_dir
+                    # 查找包含任务名的部分，通常在 "data/" 之后
+                    if "data/" in data_path:
+                        path_after_data = data_path.split("data/")[-1]
+                        # 提取任务名（第一个下划线前的部分，或整个路径段）
+                        task_name = path_after_data.split("/")[0].split("_")[0]
+                        if task_name and len(task_name) > 0:
+                            task_suffix = f"_{task_name}"
+                    else:
+                        # 备用方案：使用目录名的最后一段
+                        dir_name = os.path.basename(data_path.rstrip('/'))
+                        if dir_name and dir_name != 'data':
+                            task_suffix = f"_{dir_name}"
+                except (IndexError, AttributeError):
+                    # 如果提取失败，使用时间戳作为后缀
+                    import time
+                    task_suffix = f"_{int(time.time())}"
+            
             log_file_path = f"performance_optimized{task_suffix}.log"
         
         # 默认保存到日志，可选打印到控制台
@@ -966,13 +946,8 @@ class RolloutDataset(RolloutFileBase):
                 if (self.traj_datas[env_idx] is None or 
                     env_idx >= len(self.traj_cursors) or 
                     env_idx >= len(self.traj_file_names) or
-                    not self.traj_file_names[env_idx] or
-                    self.traj_file_idxs[env_idx] >= len(self.traj_file_names[env_idx])):
-                    raise ValueError(f"Invalid data for env {env_idx}: "
-                                   f"traj_data={'None' if self.traj_datas[env_idx] is None else 'OK'}, "
-                                   f"file_names_len={len(self.traj_file_names) if env_idx < len(self.traj_file_names) else 'N/A'}, "
-                                   f"file_idx={self.traj_file_idxs[env_idx] if env_idx < len(self.traj_file_idxs) else 'N/A'}, "
-                                   f"files_available={len(self.traj_file_names[env_idx]) if env_idx < len(self.traj_file_names) and self.traj_file_names[env_idx] else 0}")
+                    not self.traj_file_names[env_idx]):
+                    raise ValueError(f"Invalid data for env {env_idx}")
             
             # 批量收集所有需要的数据
             observations_list = []
@@ -1053,18 +1028,6 @@ class RolloutDataset(RolloutFileBase):
             return False
     
     def _fill_transition_per_env(self, buffer, env_idx: int):
-        # 🛡️ 安全检查：确保索引有效
-        if (env_idx >= len(self.traj_file_names) or 
-            not self.traj_file_names[env_idx] or 
-            self.traj_file_idxs[env_idx] >= len(self.traj_file_names[env_idx])):
-            print(f"[ERROR] Invalid trajectory file access for env {env_idx}: "
-                  f"file_names_len={len(self.traj_file_names) if hasattr(self, 'traj_file_names') else 'None'}, "
-                  f"file_idx={self.traj_file_idxs[env_idx] if env_idx < len(self.traj_file_idxs) else 'N/A'}, "
-                  f"files_available={len(self.traj_file_names[env_idx]) if env_idx < len(self.traj_file_names) and self.traj_file_names[env_idx] else 0}")
-            # 尝试重新刷新这个环境的轨迹处理器
-            self._skip_corrupted_file(env_idx)
-            return
-            
         traj_cursor_in_file = self.traj_cursors[env_idx] - self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])[0]
         buffer.observation.copy_(self.traj_datas[env_idx]["observations"][traj_cursor_in_file])
         buffer.privileged_observation.copy_(self.traj_datas[env_idx]["privileged_observations"][traj_cursor_in_file])
@@ -1084,20 +1047,9 @@ class RolloutDataset(RolloutFileBase):
             if not buffer.done.any():
                 buffer.timeout.copy_(torch.tensor([True], device= self.device).squeeze())
             buffer.done.copy_(torch.tensor([True], device= self.device).squeeze())
-        
-        # 🛡️ 再次安全检查：确保next_observation访问有效
-        if (env_idx >= len(self.traj_file_names) or 
-            not self.traj_file_names[env_idx] or 
-            self.traj_file_idxs[env_idx] >= len(self.traj_file_names[env_idx])):
-            print(f"[ERROR] Invalid trajectory file access for next_observation for env {env_idx}")
-            # 如果无法获取next_observation，使用当前observation作为fallback
-            buffer.next_observation.copy_(buffer.observation)
-            buffer.next_privileged_observation.copy_(buffer.privileged_observation)
-        else:
-            traj_cursor_in_file = self.traj_cursors[env_idx] - self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])[0]
-            buffer.next_observation.copy_(self.traj_datas[env_idx]["observations"][traj_cursor_in_file])
-            buffer.next_privileged_observation.copy_(self.traj_datas[env_idx]["privileged_observations"][traj_cursor_in_file])
-        
+        traj_cursor_in_file = self.traj_cursors[env_idx] - self.get_frame_range(self.traj_file_names[env_idx][self.traj_file_idxs[env_idx]])[0]
+        buffer.next_observation.copy_(self.traj_datas[env_idx]["observations"][traj_cursor_in_file])
+        buffer.next_privileged_observation.copy_(self.traj_datas[env_idx]["privileged_observations"][traj_cursor_in_file])
         # 统计：累计 transition & 轨迹覆盖
         self._cumulative_transitions += 1
         try:
@@ -1122,22 +1074,12 @@ class RolloutDataset(RolloutFileBase):
                         print(f"[INFO] Using original method as fallback...")
                         for env_idx in env_ids:
                             env_idx_int = int(env_idx.item() if hasattr(env_idx, 'item') else env_idx)
-                            try:
-                                self._fill_transition_per_env(buffer[env_idx_int], env_idx_int)
-                            except Exception as e:
-                                print(f"[ERROR] Failed to fill transition for env {env_idx_int}: {e}")
-                                # 继续处理其他环境，不让单个环境的错误影响整个批次
-                                continue
+                            self._fill_transition_per_env(buffer[env_idx_int], env_idx_int)
                 else:
                     # 使用原始方法（单环境或禁用优化时）
                     for env_idx in env_ids:
                         env_idx_int = int(env_idx.item() if hasattr(env_idx, 'item') else env_idx)
-                        try:
-                            self._fill_transition_per_env(buffer[env_idx_int], env_idx_int)
-                        except Exception as e:
-                            print(f"[ERROR] Failed to fill transition for env {env_idx_int}: {e}")
-                            # 继续处理其他环境，不让单个环境的错误影响整个批次
-                            continue
+                        self._fill_transition_per_env(buffer[env_idx_int], env_idx_int)
             # 返回一个 info-like dict 可供 runner 进一步写 TensorBoard
         return {
             'cumulative_transitions': self._cumulative_transitions,
