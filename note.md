@@ -194,3 +194,5 @@ python legged_gym/scripts/collect.py --headless --task go2_distill --log --load_
 
 (3) Train Go2 Field
 python legged_gym/scripts/train.py --headless --task go2_field 
+
+

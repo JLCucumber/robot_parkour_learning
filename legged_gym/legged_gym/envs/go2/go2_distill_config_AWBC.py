@@ -1,4 +1,5 @@
 """ Config to train the whole parkour oracle policy """
+import os
 import numpy as np
 from os import path as osp
 from collections import OrderedDict
