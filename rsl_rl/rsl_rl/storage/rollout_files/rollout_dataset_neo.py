@@ -6,6 +6,8 @@ import pickle
 import json
 import time
 import traceback
+import random
+import logging
 from collections import OrderedDict, defaultdict
 
 from rsl_rl.utils.collections import namedarraytuple
@@ -51,6 +53,11 @@ class RolloutDataset(RolloutFileBase):
         self._scan_index = 0
         self._last_total_dirs = 0
         
+        # 🔄 迭代计数器 - 用于基于迭代次数的报告
+        self._current_iteration = 0
+        self._last_report_iteration = 0
+        self._report_interval = 1000  # 每1000次迭代报告一次
+        
         # 🚀 性能优化配置 - 安全开关
         self.enable_batch_tensor_copy = True   # 可以设为False回退到原始方法
         self.enable_async_gpu_ops = False      # 默认关闭，更安全
@@ -79,7 +86,10 @@ class RolloutDataset(RolloutFileBase):
                 'trajectory_refresh': 0,
             }
         }
-        self._last_timing_report = time.time()
+        
+        # 🔄 初始化迭代计数器状态 
+        self._current_iteration = 0
+        self._last_report_iteration = 0
 
     @staticmethod
     def get_frame_range(filename: str) -> tuple:
@@ -125,21 +135,22 @@ class RolloutDataset(RolloutFileBase):
         打印和记录性能统计信息
         
         Args:
-            force (bool): 强制打印，忽略时间间隔限制
+            force (bool): 强制打印，忽略迭代次数间隔限制
             show_in_terminal (bool): 是否在终端显示详细报告，默认False
             save_to_log (bool): 是否保存到日志文件，默认True
             log_file_path (str): 自定义日志文件路径，默认None
         """
         import logging
         import os
+        import re
+        import time
         from datetime import datetime
         
-        current_time = time.time()
-        # 每60秒或强制打印一次报告
-        if not force and (current_time - self._last_timing_report) < 60:
+        # 基于迭代次数的报告触发逻辑，每1000次迭代或强制打印一次报告
+        if not force and (self._current_iteration - self._last_report_iteration) < self._report_interval:
             return
             
-        self._last_timing_report = current_time
+        self._last_report_iteration = self._current_iteration
         
         # 设置日志
         log_file = None
@@ -204,6 +215,7 @@ class RolloutDataset(RolloutFileBase):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_and_print("="*80)
         log_and_print(f"🔍 RolloutDataset Performance Analysis Report - {timestamp}")
+        log_and_print(f"🔄 Current Iteration: {self._current_iteration} | Report Interval: {self._report_interval}")
         log_and_print("="*80)
         
         total_time = sum(self._timing_stats[key] for key in self._timing_stats if key != 'total_calls')
@@ -273,13 +285,13 @@ class RolloutDataset(RolloutFileBase):
         if not show_in_terminal and save_to_log:
             # 只在日志中记录，终端显示简短信息
             print(f"📊 Performance report logged to: {log_file}")
-            print(f"   Total time: {total_time:.3f}s | Top bottleneck: {max_time_op[0].replace('_', ' ').title()} ({(max_time_op[1]/total_time)*100:.1f}%)")
+            print(f"   Iteration: {self._current_iteration} | Total time: {total_time:.3f}s | Top bottleneck: {max_time_op[0].replace('_', ' ').title()} ({(max_time_op[1]/total_time)*100:.1f}%)")
         elif show_in_terminal and save_to_log:
             print(f"\n💾 Performance report also saved to: {log_file}")
     
     def print_timing_stats(self, print_to_console=False, log_file_path=None):
         """
-        打印性能统计
+        打印性能统计 (基于迭代次数触发，每1000次迭代报告一次)
         
         Args:
             print_to_console (bool): 是否打印到控制台，默认False
@@ -1081,6 +1093,13 @@ class RolloutDataset(RolloutFileBase):
                         env_idx_int = int(env_idx.item() if hasattr(env_idx, 'item') else env_idx)
                         self._fill_transition_per_env(buffer[env_idx_int], env_idx_int)
             # 返回一个 info-like dict 可供 runner 进一步写 TensorBoard
+            
+        # 🔄 更新迭代计数器
+        self._current_iteration += 1
+        
+        # 🔄 触发基于迭代次数的性能报告
+        self._print_timing_report()
+        
         return {
             'cumulative_transitions': self._cumulative_transitions,
             'unique_traj_covered': len(self._sampled_traj_identifier_set),
@@ -1090,3 +1109,17 @@ class RolloutDataset(RolloutFileBase):
     def print_performance_report(self):
         """打印性能分析报告 - 显示各个操作的耗时统计"""
         self._print_timing_report()
+    
+    def set_report_interval(self, interval: int):
+        """
+        设置性能报告间隔
+        
+        Args:
+            interval (int): 报告间隔（迭代次数），默认1000
+        """
+        self._report_interval = max(1, interval)  # 确保至少为1
+        print(f"RolloutDataset: Performance report interval set to {self._report_interval} iterations")
+    
+    def get_current_iteration(self) -> int:
+        """获取当前迭代次数"""
+        return self._current_iteration

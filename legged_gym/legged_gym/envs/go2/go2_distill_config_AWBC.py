@@ -62,6 +62,7 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
         awbc_weight_type = "percentile"
         awbc_percentile = 95
         awbc_weight_clip = 1.0
+
         # Plan A: AW-BC 审计导出（训练侧）
         # 每隔 every 次迭代导出一次小样本，保存到 save_dir
         # position_obs_key 可选，用于导出 obs 的某段切片以定位位置信息（例如 [0,3]）
@@ -71,19 +72,19 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
             every=4000,
             # 每次采样更少条目降低 I/O
             per_iter=16,
-            save_dir=os.path.join(Go2DistillCfg.custom.logs_root, "awbc_audit", "go2_distill_awbc"),
+            save_dir=os.path.join(Go2DistillCfg.custom.logs_root, "go2_distill_awbc", "awbc_audit"),
             # position_obs_key=[0, 3],
         )
 
-        # teacher_ac_path = osp.join(logs_root, "field_go2",
-        #     "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
-        #     "model_40000.pt"
-        # )
-
         teacher_ac_path = osp.join(logs_root, "field_go2",
-            "Aug19_18-16-38_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromAug19_10-32-13",
-            "model_50000.pt"
+            "May26_20-05-28_Go2_10skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_leapHeight2.e-01_motorTorqueClip_fromMay26_18-40-14",
+            "model_40000.pt"
         )
+
+        # teacher_ac_path = osp.join(logs_root, "field_go2",
+        #     "Aug19_18-16-38_Go2_9skills_pEnergy2.e-07_pTorques-1.e-07_pLazyStop-3.e+00_pPenD5.e-02_penEasier200_penHarder100_motorTorqueClip_fromAug19_10-32-13",
+        #     "model_50000.pt"
+        # )
 
     # 覆盖 runner 的预训练数据集目录，使其指向按任务名划分的子目录
     class runner(Go2DistillCfgPPO.runner):
@@ -114,7 +115,7 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
             data_dir = osp.join(Go2DistillCfg.custom.data_root, "go2_distill_awbc_dagger")
             dataset_loops = -1
             random_shuffle_traj_order = True
-            keep_latest_n_trajs =  1500  #100
+            keep_latest_n_trajs =  2000  #100
             starting_frame_range = [0, 50]
 
         max_iterations = 40000
