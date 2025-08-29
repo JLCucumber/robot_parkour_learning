@@ -253,22 +253,22 @@ class DemonstrationSaver:
         os.rename(temp_path, traj_file)
 
         # Plan B: save a sidecar NPZ with pose and advantages for this slice
-        try:
-            sidecar = {
-                'pos_world': self.pose_pos[step_slice, env_i].numpy(),
-                'rpy': self.pose_rpy[step_slice, env_i].numpy(),
-                'advantages': trajectory.get('advantages', None),
-                'positive_advantages': trajectory.get('positive_advantages', None),
-            }
-            sidecar = {k: v for k, v in sidecar.items() if v is not None}
-            sidecar_name = osp.splitext(final_filename)[0] + "_sidecar_pose_adv.npz"
-            sidecar_path = osp.join(traj_dir, sidecar_name)
-            # with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
-            #     np.savez_compressed(tmp_f, **sidecar)
-            #     tmp_side_path = tmp_f.name
-            # os.rename(tmp_side_path, sidecar_path)
-        except Exception:
-            pass
+        # try:
+        #     sidecar = {
+        #         'pos_world': self.pose_pos[step_slice, env_i].numpy(),
+        #         'rpy': self.pose_rpy[step_slice, env_i].numpy(),
+        #         'advantages': trajectory.get('advantages', None),
+        #         'positive_advantages': trajectory.get('positive_advantages', None),
+        #     }
+        #     sidecar = {k: v for k, v in sidecar.items() if v is not None}
+        #     sidecar_name = osp.splitext(final_filename)[0] + "_sidecar_pose_adv.npz"
+        #     sidecar_path = osp.join(traj_dir, sidecar_name)
+        #     # with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
+        #     #     np.savez_compressed(tmp_f, **sidecar)
+        #     #     tmp_side_path = tmp_f.name
+        #     # os.rename(tmp_side_path, sidecar_path)
+        # except Exception:
+        #     pass
 
         self.dumped_traj_lengths[env_i] += step_slice.stop - step_slice.start
         self.total_timesteps += step_slice.stop - step_slice.start
@@ -351,7 +351,7 @@ class DemonstrationSaver:
         positive_advantages = torch.clamp(advantages, min=0.0)
         
         # # 简单的难度分数（后续可扩展）
-        difficulty_scores = positive_advantages.clone()
+        # difficulty_scores = positive_advantages.clone()
 
 
         trajectory = dict(
@@ -362,7 +362,7 @@ class DemonstrationSaver:
             values= self.rollout_storage.values[step_slice, env_i].cpu().numpy(),
             advantages=advantages.numpy(),                      # newly added
             positive_advantages=positive_advantages.numpy(),    # newly added
-            difficulty_scores=difficulty_scores.numpy(),        # newly added
+            # difficulty_scores=difficulty_scores.numpy(),        # newly added
             bootstrap_value= bootstrap_value,                   # 用于截断优势校正
             truncated= truncated,
             terminal= terminal,

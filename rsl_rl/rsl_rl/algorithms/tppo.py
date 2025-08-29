@@ -197,7 +197,7 @@ class TPPO(PPO):
 
             self.transition.teacher_advantages = _to_col(transition.teacher_advantages)
             self.transition.positive_advantages = _to_col(transition.positive_advantages)
-            self.transition.difficulty_scores = _to_col(transition.difficulty_scores)
+            # self.transition.difficulty_scores = _to_col(transition.difficulty_scores)
         
         super().process_env_step(
             transition.reward, 
