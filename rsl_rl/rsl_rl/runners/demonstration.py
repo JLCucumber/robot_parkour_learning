@@ -117,8 +117,8 @@ class DemonstrationSaver:
         self.transition_timeouts = torch.zeros(self.rollout_storage_length, self.env.num_envs, dtype= torch.bool, device= self.env.device)
         
         # Plan B buffers: per-step pose (world) and orientation (r,p,y) for each env
-        self.pose_pos = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
-        self.pose_rpy = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
+        # self.pose_pos = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
+        # self.pose_rpy = torch.zeros(self.rollout_storage_length, self.env.num_envs, 3, dtype=torch.float32, device='cpu')
 
         # Buffer for bootstrap value: value of next state after each step (V(s_{t+1}))
         # Used to compute more accurate GAE for truncated (non-terminal) end segments.
@@ -148,19 +148,19 @@ class DemonstrationSaver:
             pass
 
         # Plan B: capture pose after environment step
-        try:
-            rs = self.env.root_states  # [N,13], on device
-            # Positions in world frame
-            pos = rs[:, :3].detach().to('cpu', non_blocking=True)
-            # Orientation to roll/pitch/yaw
-            quat_xyzw = rs[:, 3:7]
-            r, p, y = get_euler_xyz(quat_xyzw)
-            rpy = torch.stack([r, p, y], dim=-1).detach().to('cpu', non_blocking=True)
-            self.pose_pos[step_i] = pos
-            self.pose_rpy[step_i] = rpy
-        except Exception:
-            # Best-effort capture; continue on failure
-            pass
+        # try:
+        #     rs = self.env.root_states  # [N,13], on device
+        #     # Positions in world frame
+        #     pos = rs[:, :3].detach().to('cpu', non_blocking=True)
+        #     # Orientation to roll/pitch/yaw
+        #     quat_xyzw = rs[:, 3:7]
+        #     r, p, y = get_euler_xyz(quat_xyzw)
+        #     rpy = torch.stack([r, p, y], dim=-1).detach().to('cpu', non_blocking=True)
+        #     self.pose_pos[step_i] = pos
+        #     self.pose_rpy[step_i] = rpy
+        # except Exception:
+        #     # Best-effort capture; continue on failure
+        #     pass
 
         self.build_transition(step_i, actions, rewards, dones, infos, teacher_values)
         self.add_transition(step_i, infos)

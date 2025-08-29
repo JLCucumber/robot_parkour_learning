@@ -165,7 +165,7 @@ def main(args):
     # env_cfg.terrain.border_size = 1.
     ############# some predefined options #############
 
-    env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 20
+    env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 20  #30
 
     print(_kv("[COLLECT] num_envs", str(env_cfg.env.num_envs), _C.GREEN))
     # Done custom settings
