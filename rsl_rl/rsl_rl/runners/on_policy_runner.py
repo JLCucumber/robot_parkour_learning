@@ -49,8 +49,7 @@ class OnPolicyRunner:
                  train_cfg,
                  log_dir=None,
                  device='cpu'):
-
-        self.cfg=train_cfg["runner"]
+        self.cfg = train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
         self.device = device
@@ -62,22 +61,32 @@ class OnPolicyRunner:
             self.policy_cfg,
         ).to(self.device)
 
-        alg_class = getattr(algorithms, self.cfg["algorithm_class_name"]) # PPO
+        alg_class = getattr(algorithms, self.cfg["algorithm_class_name"])  # PPO
         self.alg: algorithms.PPO = alg_class(actor_critic, device=self.device, **self.alg_cfg)
-        
+
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
         self.save_interval = self.cfg["save_interval"]
 
         # init storage and model
-        self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, [self.env.num_obs], [self.env.num_privileged_obs], [self.env.num_actions])
+        self.alg.init_storage(
+            self.env.num_envs,
+            self.num_steps_per_env,
+            [self.env.num_obs],
+            [self.env.num_privileged_obs],
+            [self.env.num_actions]
+        )
 
-        # Log
+        # Log & counters
         self.log_dir = log_dir
         self.writer = None
         self.tot_timesteps = 0
         self.tot_time = 0
         self.current_learning_iteration = 0
         self.log_interval = self.cfg.get("log_interval", 1)
+
+        # Emergency cleanup related state (cooldown to avoid repeated heavy cleanups)
+        self._last_emergency_cleanup_ts = 0.0
+        self._emergency_cooldown = self.cfg.get("emergency_cleanup_cooldown_sec", 3600)  # 1h default
 
         _, _ = self.env.reset()
     
@@ -282,52 +291,181 @@ class OnPolicyRunner:
         print(log_string)
 
     def save(self, path, infos=None):
-        import tempfile
-        import shutil
-        
+        """Attempt to save model.
+
+        If disk quota / no-space error occurs:
+          1) Run emergency cleanup (respect a cooldown to avoid spamming).
+          2) Sleep 10 minutes (configurable via self.cfg.get('emergency_wait_minutes', 10)).
+          3) Retry up to max_retries.
+        If still failing due to disk space, skip this checkpoint gracefully.
+        """
+        import tempfile, shutil, subprocess, sys
+
         run_state_dict = self.alg.state_dict()
-        run_state_dict.update({
-            'iter': self.current_learning_iteration,
-            'infos': infos,
-        })
-        
-        # 确保目标目录存在
+        run_state_dict.update({'iter': self.current_learning_iteration, 'infos': infos})
+
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
-        # 使用临时文件安全保存，避免写入过程中的文件损坏
+
         max_retries = 3
-        for attempt in range(max_retries):
+        attempt = 0
+        disk_error_happened = False
+        wait_minutes = self.cfg.get('emergency_wait_minutes', 10)
+
+        while attempt < max_retries:
             temp_path = None
             try:
-                # 创建临时文件
                 temp_dir = os.path.dirname(path)
                 with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False, suffix='.pt.tmp') as temp_file:
                     temp_path = temp_file.name
-                
-                # 保存到临时文件
                 torch.save(run_state_dict, temp_path)
-                
-                # 原子性移动（重命名）到目标位置
                 shutil.move(temp_path, path)
                 print(f"✅ Model successfully saved to {path}")
-                break
-                
+                return
             except Exception as e:
-                print(f"⚠️ Save attempt {attempt + 1}/{max_retries} failed: {e}")
-                
-                # 清理可能存在的临时文件
+                error_msg = str(e)
+                print(f"⚠️ Save attempt {attempt + 1}/{max_retries} failed: {error_msg}")
                 if temp_path and os.path.exists(temp_path):
                     try:
                         os.remove(temp_path)
-                    except:
+                    except Exception:
                         pass
-                
-                if attempt == max_retries - 1:
-                    print(f"❌ Failed to save model after {max_retries} attempts")
-                    raise
+
+                is_disk_quota_error = any(tok in error_msg for tok in [
+                    'Disk quota exceeded', 'No space left on device', '[Errno 122]', '[Errno 28]'
+                ])
+
+                if is_disk_quota_error:
+                    disk_error_happened = True
+                    now = time.time()
+                    if now - self._last_emergency_cleanup_ts > self._emergency_cooldown:
+                        print("🚨 \033[1;91mDisk quota / no space detected. Triggering emergency cleanup.\033[0m")
+                        self._last_emergency_cleanup_ts = now
+                        # Run external cleaner if present; fallback to inline.
+                        try:
+                            current_dir = os.path.dirname(os.path.abspath(__file__))
+                            cleaner_script = os.path.join(current_dir, '..', 'utils', 'emergency_cleaner.py')
+                            if os.path.exists(cleaner_script):
+                                result = subprocess.run([sys.executable, cleaner_script], capture_output=True, text=True, timeout=600)
+                                print("---- emergency_cleaner stdout (truncated 500 chars) ----")
+                                if result.stdout:
+                                    print(result.stdout[:500])
+                                if result.returncode != 0:
+                                    print(f"⚠️ emergency_cleaner exit code {result.returncode}; stderr: {result.stderr[:300]}")
+                            else:
+                                print(f"⚠️ Cleaner script missing at {cleaner_script}, using inline cleanup.")
+                                self._inline_emergency_cleanup()
+                        except Exception as ce:
+                            print(f"❌ External emergency cleanup failed: {ce}; using inline fallback.")
+                            self._inline_emergency_cleanup()
+                    else:
+                        remaining = int(self._emergency_cooldown - (now - self._last_emergency_cleanup_ts))
+                        print(f"⏳ Skipping emergency cleanup (cooldown active, {remaining}s remaining).")
+
+                    # Always wait after a disk error (single long sleep)
+                    print(f"⏸️  Pausing training for {wait_minutes} minutes to allow space reclamation...")
+                    for m in range(wait_minutes):
+                        time.sleep(60)
+                        if (m + 1) % 2 == 0 or m == wait_minutes - 1:
+                            print(f"  ... waited {m + 1}/{wait_minutes} minutes")
+                    print("🔄 Resuming and retrying save...")
                 else:
-                    print(f"🔄 Retrying in 2 seconds...")
+                    # Non-disk errors: small backoff
                     time.sleep(2)
+
+            attempt += 1
+
+        # Exited loop without success
+        print(f"❌ Failed to save model after {max_retries} attempts")
+        if disk_error_happened:
+            print("⚠️ \033[1;93mSkipping this checkpoint due to disk space issues; training continues.\033[0m")
+            return
+        # Non-disk error: propagate
+        raise RuntimeError(f"Failed to save checkpoint to {path}")
+    
+    def _inline_emergency_cleanup(self):
+        """
+        Inline emergency cleanup when external script is not available.
+        """
+        import re
+        from pathlib import Path
+        
+        try:
+            # 基础数据目录 - 根据你的设置调整
+            base_data_dir = "/cs/student/projects2/rai/2024/hongboli/network_test/data"
+            
+            if not os.path.isdir(base_data_dir):
+                print(f"❌ Data directory not found: {base_data_dir}")
+                return
+            
+            trajectory_pattern = re.compile(r"trajectory_(\d+)")
+            emergency_delete_count = 1000  # 紧急情况下删除更多
+            total_deleted = 0
+            
+            print(f"🔍 Scanning {base_data_dir} for cleanup...")
+            
+            # 遍历任务文件夹
+            for task_entry in os.scandir(base_data_dir):
+                if not task_entry.is_dir():
+                    continue
+                
+                task_name = task_entry.name
+                print(f"  📁 Checking task: {task_name}")
+                
+                # 遍历子目录
+                for sub_dir_entry in os.scandir(task_entry.path):
+                    if not sub_dir_entry.is_dir():
+                        continue
+                    
+                    # 获取轨迹文件夹
+                    trajectories = []
+                    try:
+                        for traj_entry in os.scandir(sub_dir_entry.path):
+                            if traj_entry.is_dir():
+                                match = trajectory_pattern.match(traj_entry.name)
+                                if match:
+                                    traj_num = int(match.group(1))
+                                    # 检查是否有pickle文件
+                                    try:
+                                        files = os.listdir(traj_entry.path)
+                                        has_pickle = any(f.endswith('.pickle') or f.endswith('.pkl') for f in files)
+                                        if has_pickle:
+                                            trajectories.append((traj_num, traj_entry.path))
+                                    except OSError:
+                                        continue
+                    except OSError:
+                        continue
+                    
+                    if len(trajectories) > 500:  # 如果有很多轨迹文件
+                        trajectories.sort(key=lambda x: x[0])  # 按编号排序
+                        to_delete = trajectories[:emergency_delete_count]
+                        
+                        print(f"    🗑️  Deleting {len(to_delete)} old trajectories from {sub_dir_entry.name}")
+                        
+                        for traj_num, traj_path in to_delete:
+                            try:
+                                if os.path.exists(traj_path):
+                                    files = os.listdir(traj_path)
+                                    pickle_files = [f for f in files if f.endswith('.pickle') or f.endswith('.pkl')]
+                                    
+                                    for pickle_file in pickle_files:
+                                        pickle_path = os.path.join(traj_path, pickle_file)
+                                        try:
+                                            os.remove(pickle_path)
+                                            total_deleted += 1
+                                        except OSError:
+                                            pass
+                                    
+                                    # 删除空目录
+                                    remaining = os.listdir(traj_path)
+                                    if not remaining:
+                                        os.rmdir(traj_path)
+                            except OSError:
+                                pass
+            
+            print(f"✅ Inline emergency cleanup completed. Deleted {total_deleted} pickle files.")
+            
+        except Exception as e:
+            print(f"❌ Inline emergency cleanup failed: {e}")
 
     def load(self, path, load_optimizer=True):
         print(f"\033[1;36m Loaded model from {path} at iteration {self.current_learning_iteration} \033[0m")

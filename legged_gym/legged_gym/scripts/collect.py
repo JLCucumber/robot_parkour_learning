@@ -159,13 +159,13 @@ def main(args):
             
     
     ####### customized option to increase data distribution #######
-    # env_cfg.env.num_envs = 6      # << modify here for quick run
+    env_cfg.env.num_envs = 128      # << modify here for quick run
     # env_cfg.terrain.curriculum = True
     # env_cfg.terrain.max_init_terrain_level = 0
     # env_cfg.terrain.border_size = 1.
     ############# some predefined options #############
 
-    env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 30
+    env_cfg.terrain.num_rows = 8 ; env_cfg.terrain.num_cols = 20
 
     print(_kv("[COLLECT] num_envs", str(env_cfg.env.num_envs), _C.GREEN))
     # Done custom settings

@@ -263,10 +263,10 @@ class DemonstrationSaver:
             sidecar = {k: v for k, v in sidecar.items() if v is not None}
             sidecar_name = osp.splitext(final_filename)[0] + "_sidecar_pose_adv.npz"
             sidecar_path = osp.join(traj_dir, sidecar_name)
-            with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
-                np.savez_compressed(tmp_f, **sidecar)
-                tmp_side_path = tmp_f.name
-            os.rename(tmp_side_path, sidecar_path)
+            # with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=traj_dir, suffix=".tmp") as tmp_f:
+            #     np.savez_compressed(tmp_f, **sidecar)
+            #     tmp_side_path = tmp_f.name
+            # os.rename(tmp_side_path, sidecar_path)
         except Exception:
             pass
 

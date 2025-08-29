@@ -106,7 +106,7 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
         # Extend previous distillation
         resume = True
         load_run = osp.join(logs_root, "go2_distill_awbc",
-            "Aug23_03-18-10_Go2_4skills_fromAug19_18-16-38",
+            "Aug27_16-58-48_Go2_7skills_fromAug19_18-16-38",
         )
 
         class pretrain_dataset(Go2DistillCfgPPO.runner.pretrain_dataset):
@@ -118,5 +118,5 @@ class Go2DistillAWBCCfgPPO(Go2DistillCfgPPO):
             keep_latest_n_trajs =  2000  #100
             starting_frame_range = [0, 50]
 
-        max_iterations = 40000
+        max_iterations = 50000
         log_interval = 100
