@@ -1,0 +1,13 @@
+Go2 Distillation Training Comparison Report
+==================================================
+
+Generated on: 2025-08-29 11:21:36
+
+Dataset Information:
+- With AWBC: 601 data points, steps 40000 - 100000
+- Without AWBC: 701 data points, steps 40000 - 110000
+
+Key Findings:
+- No-AWBC shows 25.7% better final loss
+- No-AWBC achieves lower minimum loss: 0.4869 vs 0.5986
+- No-AWBC shows more stable training (lower std dev): 0.0740 vs 0.0999
