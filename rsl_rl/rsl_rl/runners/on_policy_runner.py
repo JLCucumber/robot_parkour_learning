@@ -56,6 +56,12 @@ class OnPolicyRunner:
         self.device = device
         self.env = env
 
+
+        print(f"[DEBUG] - [ON POLICY RUNNER] env: {self.env} ")
+        print(f"[DEBUG] - [ON POLICY RUNNER] cfg: {self.cfg} ")
+        print(f"[DEBUG] - [ON POLICY RUNNER] alg_cfg: {self.alg_cfg} ")
+        print(f"[DEBUG] - [ON POLICY RUNNER] policy_cfg: {self.policy_cfg} ")
+
         actor_critic = modules.build_actor_critic(
             self.env,
             self.cfg["policy_class_name"],
